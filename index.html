@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Scarlet Frontier Log</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <main class="app">
+    <header class="head">
+      <div>
+        <div class="kicker">Scarlet Frontier</div>
+        <h1>Online Log</h1>
+      </div>
+      <div id="status" class="status local">LOCAL</div>
+    </header>
+
+    <section class="card compact">
+      <label class="field grow">
+        <span>Имя персонажа</span>
+        <input id="actorName" placeholder="Полли" />
+      </label>
+      <div class="resources">
+        <div class="resbox">
+          <span>ОТП</span>
+          <div class="counter">
+            <button data-res="otp" data-delta="-1">−</button>
+            <strong id="otpVal">0</strong>
+            <button data-res="otp" data-delta="1">+</button>
+          </div>
+        </div>
+        <div class="resbox">
+          <span>ОД</span>
+          <div class="counter">
+            <button data-res="od" data-delta="-1">−</button>
+            <strong id="odVal">3</strong>
+            <button data-res="od" data-delta="1">+</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-title">Проверка навыка</div>
+      <div class="grid two">
+        <label class="field"><span>Навык</span><input id="skillName" value="Стрельба" /></label>
+        <label class="field"><span>TN</span><input id="tn" type="number" min="3" max="7" value="4" /></label>
+      </div>
+      <div class="grid four">
+        <label class="field"><span>Костей</span><select id="skillCount"><option value="0">0 / Зеро</option><option value="1">1</option><option value="2" selected>2</option></select></label>
+        <label class="field"><span>Навык</span><select id="skillDie"><option>d4</option><option>d6</option><option selected>d8</option><option>d10</option><option>d12</option></select></label>
+        <label class="field"><span>Атрибут</span><select id="attrDie"><option>d4</option><option>d6</option><option selected>d8</option><option>d10</option><option>d12</option></select></label>
+        <label class="field"><span>Страховка</span><select id="insurance"><option value="0">Нет</option><option value="1">Да, −1 ОТП</option></select></label>
+      </div>
+      <div class="mods">
+        <div class="modbox">
+          <span>Преимущества</span>
+          <div class="counter"><button id="advMinus">−</button><strong id="advVal">0</strong><button id="advPlus">+</button></div>
+        </div>
+        <div class="modbox">
+          <span>Помехи</span>
+          <div class="counter"><button id="disMinus">−</button><strong id="disVal">0</strong><button id="disPlus">+</button></div>
+        </div>
+      </div>
+      <label class="check"><input id="forceZero" type="checkbox" /> Добровольный Зеро</label>
+      <button id="rollSkill" class="primary">Бросить проверку</button>
+    </section>
+
+    <section class="card">
+      <div class="card-title">Урон</div>
+      <div class="grid two">
+        <label class="field"><span>Оружие</span><input id="weaponName" value="Оружие" /></label>
+        <label class="field"><span>SP цели</span><input id="targetSp" type="number" min="0" value="0" /></label>
+      </div>
+      <div class="grid three">
+        <label class="field"><span>Костей</span><select id="damageCount"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></label>
+        <label class="field"><span>Кость</span><select id="damageDie"><option>d4</option><option selected>d6</option><option>d8</option><option>d10</option><option>d12</option></select></label>
+        <label class="field"><span>Боеприпас</span><select id="ammoType"><option value="light">Лёгкий</option><option value="ap">Бронебойный</option><option value="exp">Экспансивный</option></select></label>
+      </div>
+      <button id="rollDamage" class="primary muted">Бросить урон</button>
+    </section>
+
+    <section class="card log-card">
+      <div class="log-head">
+        <div class="card-title">Лог бросков</div>
+        <button id="clearLog" class="ghost">Очистить</button>
+      </div>
+      <div id="log" class="log"></div>
+    </section>
+  </main>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>
