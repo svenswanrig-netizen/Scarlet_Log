@@ -8,7 +8,7 @@
   "action": {
     "title": "Scarlet Log",
     "icon": "./icon.svg",
-    "popover": "./index.html",
+    "popover": "index.html"
     "height": 720,
     "width": 520
   }
