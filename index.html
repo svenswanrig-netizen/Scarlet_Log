@@ -3,92 +3,119 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Scarlet Frontier Log</title>
-  <link rel="stylesheet" href="./style.css" />
+  <title>Scarlet Frontier Log v0.3</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <main class="app">
-    <header class="head">
+    <header class="top">
       <div>
         <div class="kicker">Scarlet Frontier</div>
-        <h1>Online Log</h1>
+        <h1>Online Log <span class="ver">v0.3</span></h1>
       </div>
-      <div id="status" class="status local">LOCAL</div>
+      <div class="status" id="net-status">offline</div>
     </header>
 
-    <section class="card compact">
-      <label class="field grow">
-        <span>Имя персонажа</span>
-        <input id="actorName" placeholder="Полли" />
-      </label>
-      <div class="resources">
-        <div class="resbox">
-          <span>ОТП</span>
-          <div class="counter">
-            <button data-res="otp" data-delta="-1">−</button>
-            <strong id="otpVal">0</strong>
-            <button data-res="otp" data-delta="1">+</button>
+    <section class="card actor-card">
+      <div class="row actor-row">
+        <label class="field grow">
+          <span>Имя персонажа</span>
+          <input id="actor-name" type="text" placeholder="Полли" autocomplete="off" />
+        </label>
+        <button class="btn small" id="announce-btn">Войти</button>
+      </div>
+      <div class="res-grid">
+        <div class="res-box">
+          <span class="res-label">ОТП</span>
+          <div class="res-line">
+            <button class="round" data-res="otp" data-delta="-1">−</button>
+            <strong id="otp-val">0</strong>
+            <button class="round" data-res="otp" data-delta="1">+</button>
           </div>
         </div>
-        <div class="resbox">
-          <span>ОД</span>
-          <div class="counter">
-            <button data-res="od" data-delta="-1">−</button>
-            <strong id="odVal">3</strong>
-            <button data-res="od" data-delta="1">+</button>
+        <div class="res-box">
+          <span class="res-label">ОД</span>
+          <div class="res-line">
+            <button class="round" data-res="od" data-delta="-1">−</button>
+            <strong id="od-val">3</strong>
+            <button class="round" data-res="od" data-delta="1">+</button>
+          </div>
+        </div>
+        <div class="res-box">
+          <span class="res-label">SP</span>
+          <div class="res-line">
+            <button class="round" data-res="sp" data-delta="-1">−</button>
+            <strong id="sp-val">0</strong>
+            <button class="round" data-res="sp" data-delta="1">+</button>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="card">
-      <div class="card-title">Проверка навыка</div>
-      <div class="grid two">
-        <label class="field"><span>Навык</span><input id="skillName" value="Стрельба" /></label>
-        <label class="field"><span>TN</span><input id="tn" type="number" min="3" max="7" value="4" /></label>
-      </div>
-      <div class="grid four">
-        <label class="field"><span>Костей</span><select id="skillCount"><option value="0">0 / Зеро</option><option value="1">1</option><option value="2" selected>2</option></select></label>
-        <label class="field"><span>Навык</span><select id="skillDie"><option>d4</option><option>d6</option><option selected>d8</option><option>d10</option><option>d12</option></select></label>
-        <label class="field"><span>Атрибут</span><select id="attrDie"><option>d4</option><option>d6</option><option selected>d8</option><option>d10</option><option>d12</option></select></label>
-        <label class="field"><span>Страховка</span><select id="insurance"><option value="0">Нет</option><option value="1">Да, −1 ОТП</option></select></label>
-      </div>
-      <div class="mods">
-        <div class="modbox">
-          <span>Преимущества</span>
-          <div class="counter"><button id="advMinus">−</button><strong id="advVal">0</strong><button id="advPlus">+</button></div>
+    <nav class="tabs">
+      <button class="tab on" data-tab="rolls">Броски</button>
+      <button class="tab" data-tab="chat">Лента ↑</button>
+      <button class="tab" data-tab="state">Состояние</button>
+    </nav>
+
+    <section class="panel on" id="tab-rolls">
+      <div class="card">
+        <div class="card-head">Проверка навыка</div>
+        <div class="grid2">
+          <label class="field"><span>Навык</span><input id="skill-name" value="Стрельба" /></label>
+          <label class="field"><span>TN</span><select id="tn"><option>3</option><option selected>4</option><option>5</option><option>6</option><option>7</option></select></label>
+          <label class="field"><span>Костей навыка</span><select id="skill-count"><option>0</option><option selected>1</option><option>2</option></select></label>
+          <label class="field"><span>Номинал навыка</span><select id="skill-die"><option>d4</option><option selected>d6</option><option>d8</option><option>d10</option><option>d12</option></select></label>
+          <label class="field"><span>Атрибут</span><select id="attr-die"><option>d4</option><option>d6</option><option selected>d8</option><option>d10</option><option>d12</option></select></label>
+          <label class="field"><span>Преим.</span><input id="adv" type="number" min="0" max="6" value="0" /></label>
+          <label class="field"><span>Помех.</span><input id="dis" type="number" min="0" max="6" value="0" /></label>
+          <label class="check"><input id="insurance" type="checkbox" /> Страховка за 1 ОТП</label>
+          <label class="check"><input id="zero" type="checkbox" /> Зеро</label>
         </div>
-        <div class="modbox">
-          <span>Помехи</span>
-          <div class="counter"><button id="disMinus">−</button><strong id="disVal">0</strong><button id="disPlus">+</button></div>
-        </div>
+        <button class="btn primary wide" id="roll-skill-btn">Бросить проверку</button>
       </div>
-      <label class="check"><input id="forceZero" type="checkbox" /> Добровольный Зеро</label>
-      <button id="rollSkill" class="primary">Бросить проверку</button>
+
+      <div class="card">
+        <div class="card-head">Урон</div>
+        <div class="grid2">
+          <label class="field"><span>Оружие</span><input id="weapon-name" value="Оружие" /></label>
+          <label class="field"><span>SP цели</span><input id="target-sp" type="number" min="0" max="99" value="0" /></label>
+          <label class="field"><span>Костей</span><select id="damage-count"><option selected>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></label>
+          <label class="field"><span>Номинал</span><select id="damage-die"><option>d4</option><option selected>d6</option><option>d8</option><option>d10</option><option>d12</option></select></label>
+          <label class="field full"><span>Боеприпас</span><select id="ammo-type"><option value="light">Лёгкий</option><option value="ap">Бронебойный / тяжёлый</option><option value="exp">Экспансивный</option></select></label>
+        </div>
+        <button class="btn primary wide" id="roll-damage-btn">Бросить урон</button>
+      </div>
     </section>
 
-    <section class="card">
-      <div class="card-title">Урон</div>
-      <div class="grid two">
-        <label class="field"><span>Оружие</span><input id="weaponName" value="Оружие" /></label>
-        <label class="field"><span>SP цели</span><input id="targetSp" type="number" min="0" value="0" /></label>
+    <section class="panel" id="tab-chat">
+      <div class="card chat-card">
+        <div class="card-head row between">
+          <span>Общая лента <small>новые сверху</small></span>
+          <button class="link-btn" id="clear-local-btn">Очистить у себя</button>
+        </div>
+        <div class="log" id="log"></div>
+        <form class="chat-form" id="chat-form">
+          <input id="chat-input" type="text" placeholder="Сообщение в комнату…" autocomplete="off" />
+          <button class="btn" type="submit">Отправить</button>
+        </form>
+        <button class="btn wide" id="export-log-btn">Скачать лог .txt</button>
       </div>
-      <div class="grid three">
-        <label class="field"><span>Костей</span><select id="damageCount"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></label>
-        <label class="field"><span>Кость</span><select id="damageDie"><option>d4</option><option selected>d6</option><option>d8</option><option>d10</option><option>d12</option></select></label>
-        <label class="field"><span>Боеприпас</span><select id="ammoType"><option value="light">Лёгкий</option><option value="ap">Бронебойный</option><option value="exp">Экспансивный</option></select></label>
-      </div>
-      <button id="rollDamage" class="primary muted">Бросить урон</button>
     </section>
 
-    <section class="card log-card">
-      <div class="log-head">
-        <div class="card-title">Лог бросков</div>
-        <button id="clearLog" class="ghost">Очистить</button>
+    <section class="panel" id="tab-state">
+      <div class="card">
+        <div class="card-head">Персонажи в комнате</div>
+        <div class="actors" id="actors-list"></div>
       </div>
-      <div id="log" class="log"></div>
+      <div class="note">
+        Это пробная сетевая версия v0.3. Лента отправляется через Owlbear Broadcast и дублируется в metadata комнаты. Новые сообщения и броски показываются сверху, чтобы не листать вниз.
+      </div>
     </section>
   </main>
-  <script type="module" src="./main.js"></script>
+
+  <script type="module" src="main.js"></script>
 </body>
 </html>

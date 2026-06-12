@@ -1,419 +1,499 @@
-const CHANNEL = "ru.scarlet-frontier.roll-log.v1";
-const LS_KEY = "scarlet_owlbear_log_v1";
-const DICE = ["d4", "d6", "d8", "d10", "d12"];
+const CHANNEL = "scarlet-frontier-log-v3";
+const META_KEY = "com.scarletfrontier.log/v3";
+const MAX_EVENTS = 40;
+const STORAGE_KEY = "scarlet-log-network-v3";
 
 let OBR = null;
 let online = false;
-let adv = 0;
-let dis = 0;
-let state = loadState();
+let seen = new Set();
+let events = [];
+let actors = {};
+let state = {
+  actor: "",
+  otp: 0,
+  od: 3,
+  sp: 0,
+  otpMax: 3,
+  extraOdGained: false
+};
 
 const $ = (id) => document.getElementById(id);
-const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
-const dN = (die) => Number(String(die).replace("d", ""));
-const nowTime = () => new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
-const uid = () => `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+const qsa = (sel) => Array.from(document.querySelectorAll(sel));
 
-init();
+function clamp(n, min, max) { return Math.max(min, Math.min(max, Number(n) || 0)); }
+function dieSides(die) { return Number(String(die).replace("d", "")); }
+function rollDie(die) { return Math.floor(Math.random() * dieSides(die)) + 1; }
+function nowTime() { return new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }); }
+function uid() { return `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`; }
+function safeActor() { return (state.actor || $("actor-name").value || "Оперативник").trim() || "Оперативник"; }
+function esc(s) { return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c])); }
 
-async function init() {
-  bindUi();
-  applyState();
-  renderLog();
-  await initOwlbear();
+function loadLocal() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    Object.assign(state, parsed.state || {});
+    events = Array.isArray(parsed.events) ? parsed.events.slice(-MAX_EVENTS) : [];
+    actors = parsed.actors || {};
+    seen = new Set(events.map(e => e.id));
+  } catch {}
+}
+function saveLocal() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ state, events: events.slice(-MAX_EVENTS), actors }));
+}
+function syncInputs() {
+  $("actor-name").value = state.actor || "";
+  $("otp-val").textContent = state.otp;
+  $("od-val").textContent = state.od;
+  $("sp-val").textContent = state.sp;
+}
+function collectActor() {
+  state.actor = safeActor();
+  actors[state.actor] = { otp: state.otp, od: state.od, sp: state.sp, updated: Date.now() };
+  saveLocal();
+  renderActors();
 }
 
-async function initOwlbear() {
+async function waitForObrReady() {
+  if (OBR?.isReady) return;
+  await new Promise((resolve) => {
+    const unsub = OBR.onReady(() => {
+      try { unsub?.(); } catch {}
+      resolve();
+    });
+  });
+}
+
+async function loadSdk() {
   try {
-    const mod = await import("https://esm.sh/@owlbear-rodeo/sdk@2.4.0");
+    const mod = await import("https://cdn.jsdelivr.net/npm/@owlbear-rodeo/sdk@latest/+esm");
     OBR = mod.default;
-    if (!OBR?.isAvailable) {
-      setStatus(false);
-      return;
-    }
-    OBR.onReady(async () => {
-      online = true;
-      setStatus(true);
-      try {
-        const playerName = await OBR.player.getName();
-        if (!state.actorName && playerName) {
-          state.actorName = playerName;
-          $("actorName").value = playerName;
-          saveState();
-        }
-      } catch (_) {}
-      OBR.broadcast.onMessage(CHANNEL, (event) => {
-        if (event?.data?.kind === "scarlet-log-entry") {
-          addEntry(event.data.entry, false);
-        }
-      });
+    if (!OBR?.isAvailable) throw new Error("OBR is not available outside Owlbear");
+    await waitForObrReady();
+    online = true;
+    $("net-status").textContent = "Owlbear online";
+    $("net-status").className = "status online";
+    setupBroadcast();
+    setupRoomMetadataSync();
+    await loadRoomState();
+    addSystem("Расширение подключено к комнате Owlbear.", false);
+  } catch (err) {
+    online = false;
+    $("net-status").textContent = "local mode";
+    $("net-status").className = "status local";
+    addSystem("Локальный режим: синхронизация включится только внутри комнаты Owlbear.", false);
+    console.warn("Owlbear SDK unavailable", err);
+  }
+}
+
+function setupBroadcast() {
+  if (!OBR?.broadcast) return;
+  try {
+    OBR.broadcast.onMessage(CHANNEL, (event) => {
+      const data = event?.data ?? event;
+      if (!data || !data.id) return;
+      receiveEvent(data);
     });
   } catch (err) {
-    console.warn("Owlbear SDK unavailable, local mode only", err);
-    setStatus(false);
+    console.warn("broadcast setup failed", err);
+    addSystem("Broadcast не подключился. Пробую синхронизацию через metadata комнаты.", false);
   }
 }
 
-function setStatus(isOnline) {
-  const el = $("status");
-  el.textContent = isOnline ? "OWLBEAR" : "LOCAL";
-  el.className = `status ${isOnline ? "online" : "local"}`;
-}
-
-function loadState() {
+function setupRoomMetadataSync() {
+  if (!OBR?.room?.onMetadataChange) return;
   try {
-    return JSON.parse(localStorage.getItem(LS_KEY)) || freshState();
-  } catch (_) {
-    return freshState();
-  }
-}
-function freshState() {
-  return { actorName: "", otp: 0, od: 3, log: [] };
-}
-function saveState() {
-  localStorage.setItem(LS_KEY, JSON.stringify(state));
-}
-function applyState() {
-  $("actorName").value = state.actorName || "";
-  $("otpVal").textContent = state.otp;
-  $("odVal").textContent = state.od;
-  $("advVal").textContent = adv;
-  $("disVal").textContent = dis;
-}
-
-function bindUi() {
-  $("actorName").addEventListener("input", () => {
-    state.actorName = $("actorName").value.trim();
-    saveState();
-  });
-
-  document.querySelectorAll("[data-res]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const res = btn.dataset.res;
-      const delta = Number(btn.dataset.delta);
-      if (res === "otp") state.otp = clamp(state.otp + delta, 0, 3);
-      if (res === "od") state.od = clamp(state.od + delta, 0, 4);
-      saveState();
-      applyState();
+    OBR.room.onMetadataChange((metadata) => {
+      const roomState = metadata?.[META_KEY];
+      if (!roomState) return;
+      applyRoomState(roomState);
     });
-  });
-
-  $("advPlus").onclick = () => { adv = clamp(adv + 1, 0, 9); applyState(); };
-  $("advMinus").onclick = () => { adv = clamp(adv - 1, 0, 9); applyState(); };
-  $("disPlus").onclick = () => { dis = clamp(dis + 1, 0, 9); applyState(); };
-  $("disMinus").onclick = () => { dis = clamp(dis - 1, 0, 9); applyState(); };
-
-  $("rollSkill").onclick = () => {
-    const result = rollSkillCheck({
-      actor: getActor(),
-      skillName: $("skillName").value.trim() || "Проверка",
-      skillCount: Number($("skillCount").value),
-      skillDie: $("skillDie").value,
-      attrDie: $("attrDie").value,
-      tn: clamp(Number($("tn").value) || 4, 3, 7),
-      advantage: adv,
-      disadvantage: dis,
-      forceZero: $("forceZero").checked,
-      useInsurance: $("insurance").value === "1",
-      otp: state.otp,
-      od: state.od,
-    });
-    state.otp = result.otpAfter;
-    state.od = result.odAfter;
-    applyState();
-    addAndBroadcast(result.entry);
-  };
-
-  $("rollDamage").onclick = () => {
-    const result = rollDamage({
-      actor: getActor(),
-      weaponName: $("weaponName").value.trim() || "Оружие",
-      count: Number($("damageCount").value),
-      die: $("damageDie").value,
-      ammoType: $("ammoType").value,
-      sp: Math.max(0, Number($("targetSp").value) || 0),
-    });
-    addAndBroadcast(result.entry);
-  };
-
-  $("clearLog").onclick = () => {
-    if (!confirm("Очистить локальный лог? У других игроков уже полученные записи не удалятся.")) return;
-    state.log = [];
-    saveState();
-    renderLog();
-  };
-}
-
-function getActor() {
-  state.actorName = $("actorName").value.trim();
-  saveState();
-  return state.actorName || "Оперативник";
-}
-
-function addAndBroadcast(entry) {
-  addEntry(entry, true);
-  if (online && OBR?.broadcast) {
-    OBR.broadcast.sendMessage(CHANNEL, { kind: "scarlet-log-entry", entry }, { destination: "REMOTE" });
+  } catch (err) {
+    console.warn("room metadata listener failed", err);
   }
 }
 
-function addEntry(entry, shouldSave = true) {
-  if (state.log.some((e) => e.id === entry.id)) return;
-  state.log.unshift(entry);
-  state.log = state.log.slice(0, 40);
-  if (shouldSave) saveState();
+function applyRoomState(roomState) {
+  if (!roomState || typeof roomState !== "object") return;
+  if (roomState.actors && typeof roomState.actors === "object") {
+    actors = { ...actors, ...roomState.actors };
+  }
+  if (Array.isArray(roomState.events)) {
+    for (const ev of roomState.events) addEventLocal(ev, false);
+  }
   renderLog();
+  renderActors();
+  saveLocal();
+}
+
+async function loadRoomState() {
+  if (!OBR?.room) return;
+  try {
+    const meta = await OBR.room.getMetadata();
+    applyRoomState(meta?.[META_KEY]);
+  } catch (err) {
+    console.warn("room metadata load failed", err);
+  }
+}
+
+function mergedEventsWith(ev) {
+  const map = new Map();
+  for (const old of events) if (old?.id) map.set(old.id, old);
+  if (ev?.id) map.set(ev.id, ev);
+  return Array.from(map.values()).sort((a, b) => (a.ts || 0) - (b.ts || 0)).slice(-MAX_EVENTS);
+}
+
+async function saveRoomState(extraEvent = null) {
+  if (!OBR?.room || !online) return;
+  try {
+    const current = await OBR.room.getMetadata();
+    const oldState = current?.[META_KEY] || {};
+    const oldEvents = Array.isArray(oldState.events) ? oldState.events : [];
+    const merged = new Map();
+    for (const ev of oldEvents) if (ev?.id) merged.set(ev.id, ev);
+    for (const ev of events) if (ev?.id) merged.set(ev.id, ev);
+    if (extraEvent?.id) merged.set(extraEvent.id, extraEvent);
+    const nextEvents = Array.from(merged.values()).sort((a, b) => (a.ts || 0) - (b.ts || 0)).slice(-MAX_EVENTS);
+    const nextActors = { ...(oldState.actors || {}), ...actors };
+    await OBR.room.setMetadata({
+      [META_KEY]: {
+        events: nextEvents,
+        actors: nextActors,
+        updated: Date.now()
+      }
+    });
+  } catch (err) {
+    console.warn("room metadata save failed", err);
+  }
+}
+
+async function broadcastEvent(ev) {
+  if (!ev.ts) ev.ts = Date.now();
+  let sent = false;
+  if (online && OBR?.broadcast) {
+    try {
+      await OBR.broadcast.sendMessage(CHANNEL, ev, { destination: "ALL" });
+      sent = true;
+    } catch (err) {
+      console.warn("broadcast send failed", err);
+    }
+  }
+  if (!sent) addEventLocal(ev, true);
+  await saveRoomState(ev);
+}
+function receiveEvent(ev) {
+  addEventLocal(ev, true);
+}
+function addEventLocal(ev, persist = true) {
+  if (!ev || !ev.id || seen.has(ev.id)) return;
+  seen.add(ev.id);
+  events.push(ev);
+  events = events.slice(-MAX_EVENTS);
+  if (ev.actor) {
+    const res = ev.resourcesAfter || ev.actorState;
+    if (res) actors[ev.actor] = { ...actors[ev.actor], ...res, updated: Date.now() };
+  }
+  renderLog();
+  renderActors();
+  if (persist) saveLocal();
+}
+function addSystem(text, network = true) {
+  const ev = { id: uid(), ts: Date.now(), type: "system", actor: "System", time: nowTime(), text };
+  return network ? broadcastEvent(ev) : addEventLocal(ev, true);
 }
 
 function renderLog() {
-  const log = $("log");
-  if (!state.log.length) {
-    log.innerHTML = `<div class="empty">Пока пусто. Первый бросок появится здесь.</div>`;
+  const el = $("log");
+  if (!el) return;
+  if (!events.length) {
+    el.innerHTML = `<div class="event system"><div class="event-body">Пока нет событий.</div></div>`;
     return;
   }
-  log.innerHTML = state.log.map((e) => `
-    <article class="entry ${escapeHtml(e.tone || "")}">
-      <div class="meta"><span>${escapeHtml(e.time)}</span><span>${escapeHtml(e.actor)}</span></div>
-      <div class="title">${escapeHtml(e.title)}</div>
-      <div class="text">${escapeHtml(e.text)}</div>
-      ${e.delta ? `<div class="delta">${escapeHtml(e.delta)}</div>` : ""}
-    </article>
+  // Новые события сверху: не нужно листать вниз после каждого броска.
+  el.innerHTML = [...events].reverse().map(ev => renderEvent(ev)).join("");
+  el.scrollTop = 0;
+}
+function renderEvent(ev) {
+  const cls = `event ${ev.type || "system"}`;
+  const actor = esc(ev.actor || "—");
+  const time = esc(ev.time || "");
+  let body = "";
+  if (ev.type === "chat") {
+    body = `<div class="event-body">${esc(ev.text)}</div>`;
+  } else if (ev.type === "roll") {
+    body = `<div class="event-title">${esc(ev.title)} <span class="pill ${ev.pill || "good"}">${esc(ev.resultLabel)}</span></div><div class="event-body">${esc(ev.summary)}</div>`;
+  } else if (ev.type === "damage") {
+    body = `<div class="event-title">${esc(ev.title)} <span class="pill mag">Урон</span></div><div class="event-body">${esc(ev.summary)}</div>`;
+  } else if (ev.type === "resource") {
+    body = `<div class="event-title">Ресурсы</div><div class="event-body">${esc(ev.summary)}</div>`;
+  } else {
+    body = `<div class="event-body">${esc(ev.text || ev.summary || "")}</div>`;
+  }
+  return `<div class="${cls}"><div class="event-top"><span class="event-actor">${actor}</span><span class="event-time">${time}</span></div>${body}</div>`;
+}
+function renderActors() {
+  const el = $("actors-list");
+  if (!el) return;
+  const list = Object.entries(actors).sort((a,b) => (b[1].updated || 0) - (a[1].updated || 0));
+  if (!list.length) {
+    el.innerHTML = `<div class="note">Пока никто не объявился.</div>`;
+    return;
+  }
+  el.innerHTML = list.map(([name, a]) => `
+    <div class="actor-item">
+      <div class="actor-name">${esc(name)}</div>
+      <div class="actor-res">ОТП ${a.otp ?? 0} · ОД ${a.od ?? 0} · SP ${a.sp ?? 0}</div>
+    </div>
   `).join("");
 }
 
-function rollSkillCheck(cfg) {
-  let otp = cfg.otp;
-  let od = cfg.od;
-  const otpBefore = otp;
-  const odBefore = od;
-  const net = cfg.advantage - cfg.disadvantage;
-  let notes = [];
-  let pool = Array.from({ length: cfg.skillCount }, () => cfg.skillDie);
-  let zeroReason = "";
-
-  if (cfg.forceZero || pool.length === 0) {
-    zeroReason = cfg.forceZero ? "Добровольный Зеро" : "Зеро: нет костей навыка";
-    return finishZeroRoll(cfg, otp, od, otpBefore, odBefore, zeroReason);
-  }
-
-  if (net > 0) {
-    for (let i = 0; i < net; i++) pool.push(cfg.skillDie);
-    notes.push(`преимущества/помехи: ${cfg.advantage}/${cfg.disadvantage}, итог +${net} кость`);
-  } else if (net < 0) {
-    const remove = Math.min(pool.length, Math.abs(net));
-    pool.splice(0, remove);
-    notes.push(`преимущества/помехи: ${cfg.advantage}/${cfg.disadvantage}, снято ${remove} кость`);
-    if (pool.length === 0) {
-      return finishZeroRoll(cfg, otp, od, otpBefore, odBefore, "Зеро: пул навыка снят помехами");
+function applyOtpDelta(delta) {
+  const beforeOtp = state.otp;
+  const beforeOd = state.od;
+  if (delta > 0) {
+    let total = state.otp + delta;
+    if (total <= state.otpMax) {
+      state.otp = total;
+    } else {
+      const extra = total - state.otpMax;
+      state.otp = state.otpMax;
+      if (extra >= 2 && !state.extraOdGained) {
+        state.od += 1;
+        state.extraOdGained = true;
+      }
     }
-  } else if (cfg.advantage || cfg.disadvantage) {
-    notes.push(`преимущества/помехи компенсировали друг друга: ${cfg.advantage}/${cfg.disadvantage}`);
+  } else if (delta < 0) {
+    state.otp = Math.max(0, state.otp + delta);
+  }
+  collectActor();
+  syncInputs();
+  return { beforeOtp, afterOtp: state.otp, beforeOd, afterOd: state.od };
+}
+function setResource(key, value) {
+  if (key === "otp") state.otp = clamp(value, 0, state.otpMax);
+  if (key === "od") state.od = clamp(value, 0, 9);
+  if (key === "sp") state.sp = clamp(value, 0, 99);
+  collectActor();
+  syncInputs();
+}
+
+function skillRoll() {
+  collectActor();
+  const actor = safeActor();
+  const skillName = $("skill-name").value.trim() || "Проверка";
+  const tn = clamp($("tn").value, 3, 7);
+  const skillCount = clamp($("skill-count").value, 0, 2);
+  const skillDie = $("skill-die").value;
+  const attrDie = $("attr-die").value;
+  const adv = clamp($("adv").value, 0, 6);
+  const dis = clamp($("dis").value, 0, 6);
+  const insurance = $("insurance").checked;
+  const forceZero = $("zero").checked || skillCount === 0;
+  const otpBefore = state.otp;
+  const odBefore = state.od;
+
+  let resultLabel = "";
+  let pill = "good";
+  let summary = "";
+  let otpDelta = 0;
+
+  if (forceZero) {
+    const r1 = rollDie(attrDie);
+    const r2 = rollDie(attrDie);
+    const best = Math.min(r1, r2);
+    if (r1 === 1 || r2 === 1) {
+      resultLabel = "Крит. промах"; pill = "bad"; otpDelta = -2;
+      summary = `Зеро: ${attrDie} → ${r1}, ${r2}; берём худший ${best} | TN ${tn}\n1 на атрибуте: −2 ОТП. ОТП ${otpBefore} → ${Math.max(0, otpBefore + otpDelta)}`;
+    } else if (best >= tn) {
+      resultLabel = "Успех"; pill = "good"; otpDelta = 0;
+      summary = `Зеро: ${attrDie} → ${r1}, ${r2}; берём худший ${best} | TN ${tn}\nУспех без ОТП.`;
+    } else {
+      resultLabel = "Провал"; pill = "bad"; otpDelta = -1;
+      summary = `Зеро: ${attrDie} → ${r1}, ${r2}; берём худший ${best} | TN ${tn}\nПровал: −1 ОТП. ОТП ${otpBefore} → ${Math.max(0, otpBefore + otpDelta)}`;
+    }
+    const res = applyOtpDelta(otpDelta);
+    summary = summary.replace(/ОТП \d+ → \d+/, `ОТП ${res.beforeOtp} → ${res.afterOtp}`);
+    sendRoll(actor, skillName, resultLabel, pill, summary, res);
+    return;
   }
 
-  const rolls = pool.map((die) => ({ die, value: rollDie(die) }));
-  const values = rolls.map((r) => r.value);
-  const best = Math.max(...values);
-  const ones = values.filter((v) => v === 1).length;
-  const mags = rolls.filter((r) => r.value === dN(r.die)).length;
-  let success = best >= cfg.tn;
-  let result = "";
-  let tone = "";
-  let resourceDelta = 0;
-  let attrText = "";
+  let pool = Array.from({ length: skillCount }, () => skillDie);
+  const net = adv - dis;
+  if (net > 0) {
+    for (let i = 0; i < net; i++) pool.push(skillDie);
+  } else if (net < 0) {
+    for (let i = 0; i < Math.abs(net); i++) {
+      if (pool.length > 0) pool.pop();
+    }
+  }
 
-  if (!success && cfg.useInsurance) {
-    if (otp > 0) {
-      otp -= 1;
-      resourceDelta -= 1;
-      const attr = rollDie(cfg.attrDie);
-      attrText = `; страховка ${cfg.attrDie} → ${attr}`;
-      if (attr === 1) {
-        result = "Крит. промах";
-        tone = "hot";
-        resourceDelta -= 2;
-        otp = clamp(otp - 2, 0, 3);
-        success = false;
-        notes.push("страховка: −1 ОТП; 1 на атрибуте = крит. промах");
-      } else if (attr >= cfg.tn) {
-        result = "Успех страховкой";
-        tone = "good";
+  if (pool.length === 0) {
+    $("zero").checked = true;
+    return skillRoll();
+  }
+
+  const rolls = pool.map(d => ({ die: d, value: rollDie(d) }));
+  const values = rolls.map(r => r.value);
+  const best = Math.max(...values);
+  const ones = values.filter(v => v === 1).length;
+  const mags = rolls.filter(r => r.value === dieSides(r.die)).length;
+  let success = best >= tn;
+  let insuranceText = "";
+  let attrValue = null;
+  let insuranceCost = 0;
+  let insuranceUnavailable = false;
+
+  if (!success && insurance) {
+    if (state.otp > 0) {
+      insuranceCost = -1;
+      attrValue = rollDie(attrDie);
+      if (attrValue === 1) {
+        resultLabel = "Крит. промах"; pill = "bad"; otpDelta = -3;
+        insuranceText = `\nСтраховка: ${attrDie} → 1. Цена страховки −1 ОТП и крит. промах −2 ОТП.`;
+      } else if (attrValue >= tn) {
         success = true;
-        notes.push("страховка: −1 ОТП; атрибут не даёт Магнумов/Осечек/ОТП");
+        resultLabel = "Успех"; pill = "good"; otpDelta = -1;
+        insuranceText = `\nСтраховка: ${attrDie} → ${attrValue}. Провал подхвачен, цена −1 ОТП.`;
       } else {
-        result = "Провал";
-        tone = "bad";
-        resourceDelta -= 1;
-        otp = clamp(otp - 1, 0, 3);
-        notes.push("страховка не спасла: дополнительно −1 ОТП за провал");
+        resultLabel = "Провал"; pill = "bad"; otpDelta = -2;
+        insuranceText = `\nСтраховка: ${attrDie} → ${attrValue}. Не помогла: цена −1 ОТП и провал −1 ОТП.`;
       }
     } else {
-      notes.push("страховка не сработала: нет ОТП");
+      insuranceUnavailable = true;
+      insuranceText = `\nСтраховка не сработала: нет ОТП.`;
     }
   }
 
-  if (!result) {
-    if (ones >= 2) {
-      result = "Крит. промах";
-      tone = "hot";
-      resourceDelta -= 2;
-      otp = clamp(otp - 2, 0, 3);
-    } else if (!success) {
-      result = "Провал";
-      tone = "bad";
-      resourceDelta -= 1;
-      otp = clamp(otp - 1, 0, 3);
-    } else if (mags >= 2) {
-      result = "Дубль-магнум";
-      tone = "hot";
-      const change = gainOtp(otp, od, 2);
-      otp = change.otp;
-      od = change.od;
-      resourceDelta += 2;
-      if (change.overflowText) notes.push(change.overflowText);
-    } else if (mags === 1) {
-      result = "Магнум";
-      tone = "hot";
-      const change = gainOtp(otp, od, 1);
-      otp = change.otp;
-      od = change.od;
-      resourceDelta += 1;
-      if (change.overflowText) notes.push(change.overflowText);
-    } else if (ones >= 1) {
-      result = "Осечка";
-      tone = "bad";
-      resourceDelta -= 1;
-      otp = clamp(otp - 1, 0, 3);
-    } else if (best >= cfg.tn + 3) {
-      result = "Превосходство";
-      tone = "good";
-      const change = gainOtp(otp, od, 1);
-      otp = change.otp;
-      od = change.od;
-      resourceDelta += 1;
-      if (change.overflowText) notes.push(change.overflowText);
-    } else {
-      result = "Успех";
-      tone = "good";
-    }
+  if (!resultLabel) {
+    if (ones >= 2) { resultLabel = "Крит. промах"; pill = "bad"; otpDelta = -2; }
+    else if (!success) { resultLabel = "Провал"; pill = "bad"; otpDelta = -1; }
+    else if (mags >= 2) { resultLabel = "Дубль-магнум"; pill = "mag"; otpDelta = 2; }
+    else if (mags === 1) { resultLabel = "Магнум"; pill = "mag"; otpDelta = 1; }
+    else if (ones >= 1) { resultLabel = "Осечка"; pill = "bad"; otpDelta = -1; }
+    else if (best >= tn + 3) { resultLabel = "Превосходство"; pill = "good"; otpDelta = 1; }
+    else { resultLabel = "Успех"; pill = "good"; otpDelta = 0; }
   }
 
-  const diceText = rolls.map((r) => `${r.die}=${r.value}`).join(", ");
-  const text = `${diceText}${attrText} | TN ${cfg.tn} | ${result}`;
-  const delta = buildDelta(otpBefore, otp, odBefore, od, notes);
-
-  return {
-    otpAfter: otp,
-    odAfter: od,
-    entry: {
-      id: uid(),
-      time: nowTime(),
-      actor: cfg.actor,
-      title: `${cfg.skillName}: ${result}`,
-      text,
-      delta,
-      tone,
-      kind: "skill",
-      resourceDelta,
-    },
+  const res = applyOtpDelta(otpDelta);
+  const modText = net === 0 ? "" : ` | модификатор пула: ${net > 0 ? "+" : ""}${net}`;
+  summary = `${pool.join("+")} → ${values.join(", ")} | лучший ${best} | TN ${tn}${modText}${insuranceText}\nОТП ${res.beforeOtp} → ${res.afterOtp}`;
+  if (res.afterOd !== res.beforeOd) summary += ` | ОД ${res.beforeOd} → ${res.afterOd}`;
+  if (insuranceUnavailable) summary += `\nИтог без страховки.`;
+  sendRoll(actor, skillName, resultLabel, pill, summary, res);
+}
+function sendRoll(actor, title, resultLabel, pill, summary, res) {
+  const ev = {
+    id: uid(), ts: Date.now(), type: "roll", actor, time: nowTime(), title, resultLabel, pill, summary,
+    resourcesAfter: { otp: state.otp, od: state.od, sp: state.sp },
+    meta: res
   };
+  broadcastEvent(ev);
 }
 
-function finishZeroRoll(cfg, otp, od, otpBefore, odBefore, reason) {
-  const r1 = rollDie(cfg.attrDie);
-  const r2 = rollDie(cfg.attrDie);
-  const best = Math.min(r1, r2);
-  let result, tone;
-  let notes = [reason, "Обычные преимущества/помехи не учитываются; берётся худший из двух бросков атрибута"];
-  if (r1 === 1 || r2 === 1) {
-    result = "Крит. промах";
-    tone = "hot";
-    otp = clamp(otp - 2, 0, 3);
-  } else if (best >= cfg.tn) {
-    result = "Успех";
-    tone = "good";
-    notes.push("Зеро не генерирует ОТП");
-  } else {
-    result = "Провал";
-    tone = "bad";
-    otp = clamp(otp - 1, 0, 3);
-  }
-  return {
-    otpAfter: otp,
-    odAfter: od,
-    entry: {
-      id: uid(),
-      time: nowTime(),
-      actor: cfg.actor,
-      title: `${cfg.skillName}: ${result}`,
-      text: `${cfg.attrDie} → ${r1}, ${r2}; выбран ${best} | TN ${cfg.tn} | ${result}`,
-      delta: buildDelta(otpBefore, otp, odBefore, od, notes),
-      tone,
-      kind: "skill",
-    },
-  };
-}
-
-function rollDamage(cfg) {
+function damageRoll() {
+  collectActor();
+  const actor = safeActor();
+  const weapon = $("weapon-name").value.trim() || "Оружие";
+  const count = clamp($("damage-count").value, 1, 6);
+  const die = $("damage-die").value;
+  const ammo = $("ammo-type").value;
+  const spRaw = clamp($("target-sp").value, 0, 99);
+  const sides = dieSides(die);
   const rolls = [];
-  const extra = [];
-  const max = dN(cfg.die);
-  for (let i = 0; i < cfg.count; i++) {
-    const v = rollDie(cfg.die);
+  const explosions = [];
+  for (let i = 0; i < count; i++) {
+    const v = rollDie(die);
     rolls.push(v);
-    if (cfg.ammoType === "exp" && v === max) {
-      extra.push(rollDie(cfg.die));
-    }
+    if (ammo === "exp" && v === sides) explosions.push(rollDie(die));
   }
-  const raw = rolls.reduce((a, b) => a + b, 0) + extra.reduce((a, b) => a + b, 0);
-  const effectiveSp = cfg.ammoType === "ap" ? Math.max(0, cfg.sp - 2) : cfg.sp;
-  const finalDamage = Math.max(0, raw - effectiveSp);
-  const ammoLabel = { light: "Лёгкий", ap: "Бронебойный", exp: "Экспансивный" }[cfg.ammoType];
-  const expText = extra.length ? `; взрыв: ${extra.join(", ")}` : "";
-  const spText = cfg.ammoType === "ap" ? `SP ${cfg.sp} → ${effectiveSp}` : `SP ${cfg.sp}`;
-  return {
-    entry: {
-      id: uid(),
-      time: nowTime(),
-      actor: cfg.actor,
-      title: `${cfg.weaponName}: урон ${finalDamage}`,
-      text: `${cfg.count}${cfg.die}, ${ammoLabel}: ${rolls.join(", ")}${expText}; сумма ${raw}; ${spText}; итог ${finalDamage}`,
-      delta: cfg.ammoType === "exp" && extra.length ? "Экспансивный боеприпас: кость взорвалась один раз." : "",
-      tone: "dmg",
-      kind: "damage",
-    },
+  const base = rolls.reduce((a,b)=>a+b,0) + explosions.reduce((a,b)=>a+b,0);
+  const spEff = ammo === "ap" ? Math.max(0, spRaw - 2) : spRaw;
+  const total = Math.max(0, base - spEff);
+  const ammoLabel = ammo === "ap" ? "бронебойный" : ammo === "exp" ? "экспансивный" : "лёгкий";
+  let summary = `${count}${die}, ${ammoLabel}: ${rolls.join(", ")}`;
+  if (explosions.length) summary += ` | взрыв: ${explosions.join(", ")}`;
+  summary += `\nСумма ${base} − SP ${spEff}`;
+  if (ammo === "ap") summary += ` (исходный SP ${spRaw}, бронебойный −2)`;
+  summary += ` = итоговый урон ${total}`;
+  const ev = {
+    id: uid(), ts: Date.now(), type: "damage", actor, time: nowTime(), title: weapon, summary,
+    resourcesAfter: { otp: state.otp, od: state.od, sp: state.sp }
   };
+  broadcastEvent(ev);
 }
 
-function gainOtp(otp, od, amount) {
-  const total = otp + amount;
-  const newOtp = Math.min(3, total);
-  const overflow = Math.max(0, total - 3);
-  let overflowText = "";
-  if (overflow >= 2 && od < 4) {
-    od = Math.min(4, od + 1);
-    overflowText = "Переполнение ОТП: 2 лишних ОТП → +1 ОД.";
-  } else if (overflow > 0) {
-    overflowText = "Лишние ОТП сверх лимита сгорели.";
-  }
-  return { otp: newOtp, od, overflowText };
+function sendChat(text) {
+  collectActor();
+  const ev = { id: uid(), ts: Date.now(), type: "chat", actor: safeActor(), time: nowTime(), text, actorState: { otp: state.otp, od: state.od, sp: state.sp } };
+  broadcastEvent(ev);
+}
+function resourceEvent(key, before, after) {
+  const label = key === "otp" ? "ОТП" : key === "od" ? "ОД" : "SP";
+  const ev = {
+    id: uid(), ts: Date.now(), type: "resource", actor: safeActor(), time: nowTime(),
+    summary: `${label}: ${before} → ${after}`,
+    resourcesAfter: { otp: state.otp, od: state.od, sp: state.sp }
+  };
+  broadcastEvent(ev);
+}
+function exportLog() {
+  const lines = events.map(ev => {
+    const head = `[${ev.time || ""}] ${ev.actor || "—"}`;
+    if (ev.type === "chat") return `${head}: ${ev.text}`;
+    if (ev.type === "roll") return `${head} — ${ev.title}: ${ev.resultLabel}\n${ev.summary}`;
+    if (ev.type === "damage") return `${head} — Урон: ${ev.title}\n${ev.summary}`;
+    return `${head}: ${ev.text || ev.summary || ""}`;
+  }).join("\n\n");
+  const blob = new Blob([lines], { type: "text/plain;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `scarlet_log_${new Date().toISOString().slice(0,10)}.txt`;
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
-function buildDelta(otpBefore, otpAfter, odBefore, odAfter, notes = []) {
-  const parts = [`ОТП ${otpBefore} → ${otpAfter}`];
-  if (odBefore !== odAfter) parts.push(`ОД ${odBefore} → ${odAfter}`);
-  if (notes.length) parts.push(notes.join("; "));
-  return parts.join(" | ");
+function bindUi() {
+  qsa(".tab").forEach(btn => btn.addEventListener("click", () => {
+    qsa(".tab").forEach(b => b.classList.remove("on"));
+    qsa(".panel").forEach(p => p.classList.remove("on"));
+    btn.classList.add("on");
+    $(`tab-${btn.dataset.tab}`).classList.add("on");
+  }));
+  $("actor-name").addEventListener("input", () => { state.actor = $("actor-name").value.trim(); saveLocal(); });
+  $("announce-btn").addEventListener("click", async () => {
+    collectActor(); syncInputs();
+    await broadcastEvent({ id: uid(), ts: Date.now(), type: "system", actor: safeActor(), time: nowTime(), text: "подключается к ленте.", actorState: { otp: state.otp, od: state.od, sp: state.sp } });
+  });
+  qsa(".round").forEach(btn => btn.addEventListener("click", () => {
+    collectActor();
+    const key = btn.dataset.res;
+    const before = state[key];
+    setResource(key, state[key] + Number(btn.dataset.delta));
+    resourceEvent(key, before, state[key]);
+  }));
+  $("roll-skill-btn").addEventListener("click", skillRoll);
+  $("roll-damage-btn").addEventListener("click", damageRoll);
+  $("chat-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const text = $("chat-input").value.trim();
+    if (!text) return;
+    $("chat-input").value = "";
+    sendChat(text);
+  });
+  $("export-log-btn").addEventListener("click", exportLog);
+  $("clear-local-btn").addEventListener("click", () => {
+    if (!confirm("Очистить ленту только у себя? У других игроков она не удалится.")) return;
+    events = []; seen = new Set(); saveLocal(); renderLog();
+  });
 }
 
-function rollDie(die) {
-  return Math.floor(Math.random() * dN(die)) + 1;
+async function init() {
+  loadLocal();
+  bindUi();
+  syncInputs();
+  renderLog();
+  renderActors();
+  await loadSdk();
 }
-
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
+init();
