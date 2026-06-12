@@ -1,14 +1,14 @@
 {
   "name": "Scarlet Frontier Log",
-  "version": "0.11.0",
+  "version": "0.11.1",
   "manifest_version": 1,
-  "description": "Полированный нижний HUD: компактный боевой пульт, общий журнал, импорт JSON, ОТП, ОД, урон и быстрые результаты для Scarlet Frontier.",
+  "description": "Нижний HUD, общий журнал, ОТП/ОД и урон для Scarlet Frontier.",
   "author": "Scarlet Frontier",
-  "icon": "https://svenswanrig-netizen.github.io/Scarlet_Log/icon.svg?v=110",
+  "icon": "https://svenswanrig-netizen.github.io/Scarlet_Log/icon.svg?v=111",
   "action": {
     "title": "Scarlet Log",
-    "icon": "https://svenswanrig-netizen.github.io/Scarlet_Log/icon.svg?v=110",
-    "popover": "https://svenswanrig-netizen.github.io/Scarlet_Log/index.html?v=110",
+    "icon": "https://svenswanrig-netizen.github.io/Scarlet_Log/icon.svg?v=111",
+    "popover": "https://svenswanrig-netizen.github.io/Scarlet_Log/index.html?v=111",
     "height": 325,
     "width": 1200
   }
