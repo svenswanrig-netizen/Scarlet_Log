@@ -1,9 +1,9 @@
-const VERSION = "110";
-const CHANNEL = "scarlet-frontier-log-v11";
-const META_KEY = "com.scarletfrontier.log/v11";
+const VERSION = "120";
+const CHANNEL = "scarlet-frontier-log-v12";
+const META_KEY = "com.scarletfrontier.log/v12";
 const MAX_EVENTS = 60;
-const STORAGE_KEY = "scarlet-log-hud-v11";
-const UI_KEY = "scarlet-log-ui-v11";
+const STORAGE_KEY = "scarlet-log-hud-v12";
+const UI_KEY = "scarlet-log-ui-v12";
 
 const SKILLS = [
   { n:"Насилие", a:"ТЕЛО", attr:"attrBody" }, { n:"Атлетика", a:"ТЕЛО", attr:"attrBody" }, { n:"Стойкость", a:"ТЕЛО", attr:"attrBody" }, { n:"Выживание", a:"ТЕЛО", attr:"attrBody" },
@@ -77,7 +77,7 @@ async function loadSdk(){
     $("net-status").textContent = "online"; $("net-status").className = "status online";
     setupBroadcast(); setupMetadataListener(); await loadRoomState();
     await publishActor();
-    if (!events.some(e => e.type === "system" && e.text?.includes("v0.11"))) addSystemLocal("Scarlet Log v0.11: нижний HUD отполирован. Ctrl+Enter — бросок, Shift+Enter — урон, J — журнал.");
+    if (!events.some(e => e.type === "system" && e.text?.includes("v0.11"))) addSystemLocal("Scarlet Log v0.12: добавлен ручной выбор костей навыка. Ctrl+Enter — бросок, Shift+Enter — урон, J — журнал.");
   }catch(err){
     online = false;
     $("net-status").textContent = "local"; $("net-status").className = "status local";
@@ -198,11 +198,27 @@ function syncControls(){
   if(old && state.chars[old]) sel.value = state.activeId;
   renderSkillOptions(); renderWeaponOptions();
 }
-function skillSummary(skill){ return skill.dice?.length ? `${skill.n} ${skill.dice.join("+")}` : `${skill.n} Зеро`; }
+function skillSummary(skill){ return skill.dice?.length ? `${skill.n} · ${skill.dice.join("+")}` : `${skill.n} · Зеро`; }
 function renderSkillOptions(){
   const c = currentChar(); const sel = $("skill-select"); const old = sel.value;
   sel.innerHTML = c.skills.map((s,i)=>`<option value="${i}">${esc(skillSummary(s))}</option>`).join("");
-  if(old) sel.value = old;
+  if(old && c.skills[Number(old)]) sel.value = old;
+  renderDiceEditor();
+}
+function diceOptionHtml(selected){
+  return [''].concat(DICE).map(d=>`<option value="${d}"${d===selected?' selected':''}>${d || '—'}</option>`).join('');
+}
+function renderDiceEditor(){
+  const c = currentChar(); const i = Number($("skill-select")?.value)||0; const sk = c.skills[i] || c.skills[0];
+  const d1 = $("die-1"), d2 = $("die-2"); if(!d1 || !d2 || !sk) return;
+  d1.innerHTML = diceOptionHtml(sk.dice?.[0] || '');
+  d2.innerHTML = diceOptionHtml(sk.dice?.[1] || '');
+}
+function applyDiceEditor(){
+  const c = currentChar(); const i = Number($("skill-select")?.value)||0; const sk = c.skills[i]; if(!sk) return;
+  const dice = [$("die-1")?.value || '', $("die-2")?.value || ''].filter(d=>DICE.includes(d));
+  sk.dice = dice;
+  saveLocal(); renderAll(); publishActor();
 }
 function weaponSummary(w){ return `${w.name || "Оружие"} ${w.dmgCount}${w.dmgDie}`; }
 function renderWeaponOptions(){
@@ -326,7 +342,7 @@ function bind(){
     saveLocal();
     const c = currentChar();
     const payload = btoa(unescape(encodeURIComponent(JSON.stringify(c))));
-    window.open(`fullsheet.html?v=110#${payload}`, "_blank");
+    window.open(`fullsheet.html?v=120#${payload}`, "_blank");
   };
   $("file-input").onchange = e => { const file=e.target.files?.[0]; if(!file) return; const r=new FileReader(); r.onload=ev=>{ try{ importCharacter(JSON.parse(ev.target.result), file.name); }catch(err){ alert("Не удалось прочитать JSON: "+err.message); } }; r.readAsText(file); e.target.value=""; };
   $("new-char-btn").onclick = async () => { const c=defaultChar("Оперативник"); state.chars[c.id]=c; state.activeId=c.id; saveLocal(); renderAll(); await publishActor(); };
@@ -334,6 +350,9 @@ function bind(){
   $("compact-btn").onclick = toggleCompact;
   $("char-select").onchange = () => { state.activeId=$("char-select").value; saveLocal(); renderAll(); publishActor(); };
   $("char-name").onchange = async () => { const c=currentChar(); c.name=$("char-name").value.trim()||"Оперативник"; saveLocal(); renderAll(); await publishActor(); };
+  $("skill-select").onchange = renderDiceEditor;
+  $("die-1").onchange = applyDiceEditor;
+  $("die-2").onchange = applyDiceEditor;
   document.querySelectorAll("[data-res]").forEach(b => b.onclick = () => changeResource(b.dataset.res, Number(b.dataset.delta)));
   document.querySelectorAll("[data-step]").forEach(b => b.onclick = () => { const key=b.dataset.step, delta=Number(b.dataset.delta); if(key==="adv") adv=clamp(adv+delta,0,6); if(key==="dis") dis=clamp(dis+delta,0,6); $("adv-val").textContent=adv; $("dis-val").textContent=dis; });
   $("roll-skill-btn").onclick = rollSkill; $("roll-damage-btn").onclick = rollDamage;
