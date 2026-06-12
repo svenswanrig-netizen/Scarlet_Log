@@ -1,7 +1,7 @@
-const VERSION="1514";
-const CHANNEL="scarlet-frontier-hud-v15-14";
-const META_KEY="com.scarletfrontier.hud/v15.14";
-const STORAGE_KEY="scarlet-hud-v15-14";
+const VERSION="1515";
+const CHANNEL="scarlet-frontier-hud-v15-15";
+const META_KEY="com.scarletfrontier.hud/v15.15";
+const STORAGE_KEY="scarlet-hud-v15-15";
 const MAX_EVENTS=80;
 const SKILLS=[
   {n:"Насилие",attr:"attrBody"},{n:"Атлетика",attr:"attrBody"},{n:"Стойкость",attr:"attrBody"},{n:"Выживание",attr:"attrBody"},
@@ -24,7 +24,7 @@ function defaultChar(name="Оперативник"){
   return {
     id: uid(), name,
     attrBody:"d8", attrReact:"d8", attrMind:"d8",
-    otp:0, otpMax:3, od:3, sp:0, damageCount:0,
+    otp:0, otpMax:3, od:3, sp:0, damageCount:0, overflowOtp:0,
     skills: SKILLS.map(s=>({n:s.n, dice:[]})),
     weapons:[{name:"Оружие", dmgCount:1, dmgDie:"d6", ammoLight:0, ammoAP:0, ammoExp:0}]
   };
@@ -44,6 +44,7 @@ function normalizeCharacter(c){
     c.damageCount=cnt;
   }
   c.damageCount=clamp(c.damageCount,0,8);
+  c.overflowOtp=clamp(c.overflowOtp||0,0,9);
   if(!Array.isArray(c.skills)) c.skills=SKILLS.map(s=>({n:s.n,dice:[]}));
   if(!Array.isArray(c.weapons) || !c.weapons.length) c.weapons=[normWeapon({})];
 }
@@ -149,7 +150,21 @@ function normWeapon(w){ let dmgCount=Number(w?.dmgCount), dmgDie=w?.dmgDie; if(!
 function weaponSummary(w){ const x=normWeapon(w); return `${x.name} ${x.dmgCount}${x.dmgDie}`; }
 function renderWeaponOptions(){ const c=currentChar(), sel=$("weapon-select"), old=sel.value; if(!c.weapons?.length) c.weapons=[normWeapon({})]; sel.innerHTML=c.weapons.map((w,i)=>`<option value="${i}">${esc(weaponSummary(w))}</option>`).join(""); if(old) sel.value=old; }
 
-function grantOtp(c,amount){ if(amount<=0) return {before:c.otp,after:c.otp,odBefore:c.od,odAfter:c.od,text:""}; const before=c.otp, odBefore=c.od, max=c.otpMax||3; let total=c.otp+amount; let overflow=Math.max(0,total-max); c.otp=Math.min(max,total); if(overflow>=2) c.od=clamp(c.od+1,0,9); return {before,after:c.otp,odBefore,odAfter:c.od,text:`ОТП ${before}→${c.otp}${c.od!==odBefore?` · ОД ${odBefore}→${c.od}`:""}`}; }
+function grantOtp(c,amount,opts={}){
+  if(amount<=0) return {before:c.otp,after:c.otp,odBefore:c.od,odAfter:c.od,text:""};
+  const before=c.otp, odBefore=c.od, max=c.otpMax||3;
+  const total=c.otp+amount;
+  const overflow=Math.max(0,total-max);
+  c.otp=Math.min(max,total);
+  if(opts.bankOverflow){
+    c.overflowOtp=(c.overflowOtp||0)+overflow;
+    if(c.overflowOtp>=2){
+      c.overflowOtp-=2;
+      c.od=clamp(c.od+1,0,9);
+    }
+  }
+  return {before,after:c.otp,odBefore,odAfter:c.od,text:`ОТП ${before}→${c.otp}${c.od!==odBefore?` · ОД ${odBefore}→${c.od}`:""}`};
+}
 function applyOtpDelta(c,delta){ const before=c.otp, odBefore=c.od; c.otp=clamp(c.otp+delta,0,c.otpMax||3); return {before,after:c.otp,odBefore,odAfter:c.od,text:`ОТП ${before}→${c.otp}`}; }
 function buildSkillPool(base,net){ let pool=[...base]; if(net>0){ const largest=pool.length?pool.reduce((a,b)=>sides(a)>=sides(b)?a:b,pool[0]):null; if(largest) for(let i=0;i<net;i++) pool.push(largest); } else if(net<0){ for(let i=0;i<Math.abs(net);i++){ if(!pool.length) break; let mx=0; pool.forEach((d,idx)=>{ if(sides(d)>sides(pool[mx])) mx=idx; }); pool.splice(mx,1); } } return pool; }
 function pickAttrDie(skill){ const c=currentChar(); const ref=SKILLS.find(s=>s.n===skill?.n)||SKILLS[0]; return c[ref.attr]||"d8"; }
@@ -169,10 +184,10 @@ async function rollSkill(){
     if(!summary){
       if(ones>=2){ const ch=applyOtpDelta(c,-2); label="Крит. промах"; pill="crit"; summary=`${sk.n}: ${vals.join(", ")} | TN ${tn}. Змеиные глаза. ${ch.text}`; }
       else if(!success){ const ch=applyOtpDelta(c,-1); label="Провал"; pill="fail"; summary=`${sk.n}: ${vals.join(", ")} | TN ${tn}. Провал. ${ch.text}`; }
-      else if(mags>=2){ const ch=grantOtp(c,2); label="Дубль-магнум"; pill="double"; summary=`${sk.n}: ${vals.join(", ")} | TN ${tn}. Дубль-магнум. ${ch.text}`; }
-      else if(mags===1){ const ch=grantOtp(c,1); label="Магнум"; pill="magnum"; summary=`${sk.n}: ${vals.join(", ")} | TN ${tn}. Магнум. ${ch.text}`; }
+      else if(mags>=2){ const ch=grantOtp(c,2,{bankOverflow:true}); label="Дубль-магнум"; pill="double"; summary=`${sk.n}: ${vals.join(", ")} | TN ${tn}. Дубль-магнум. ${ch.text}`; }
+      else if(mags===1){ const ch=grantOtp(c,1,{bankOverflow:true}); label="Магнум"; pill="magnum"; summary=`${sk.n}: ${vals.join(", ")} | TN ${tn}. Магнум. ${ch.text}`; }
       else if(ones>=1){ const ch=applyOtpDelta(c,-1); label="Осечка"; pill="bad"; summary=`${sk.n}: ${vals.join(", ")} | TN ${tn}. Успех с осечкой. ${ch.text}`; }
-      else if(best>=tn+3){ const ch=grantOtp(c,1); label="Превосходство"; pill="success"; summary=`${sk.n}: ${vals.join(", ")} | TN ${tn}. Превосходство. ${ch.text}`; }
+      else if(best>=tn+3){ const ch=grantOtp(c,1,{bankOverflow:false}); label="Превосходство"; pill="success"; summary=`${sk.n}: ${vals.join(", ")} | TN ${tn}. Превосходство. ${ch.text}`; }
       else { label="Успех"; pill="success"; summary=`${sk.n}: ${vals.join(", ")} | TN ${tn}. Действие выполнено.`; }
     }
   }
@@ -197,7 +212,7 @@ function renderRecentFeed(){
 }
 
 function renderLatest(){
-  const ev=[...events].reverse().find(e=>e.type!=="system") || [...events].reverse()[0]; const box=$("latest-card");
+  const rev=[...events].reverse(); const ev=rev.find(e=>["roll","damage"].includes(e.type)) || rev.find(e=>e.type!=="system") || rev[0]; const box=$("latest-card");
   if(!ev){ box.className="last-card"; box.innerHTML='<div class="last-label">Последний результат</div><div class="last-title">Нет событий</div><div class="last-body">Броски и урон появятся здесь у всех игроков с открытым HUD.</div>'; return; }
   box.className=`last-card ${ev.pill||ev.type||""}`;
   let title=ev.actor||"Событие"; if(ev.type==="roll") title=`${esc(ev.actor)} — <span class="result">${esc(ev.resultLabel)}</span>`; if(ev.type==="damage") title=`${esc(ev.actor)} — УРОН`; if(ev.type==="chat"||ev.type==="scene") title=`${esc(ev.actor)} — ЗАПИСЬ`;
@@ -205,7 +220,7 @@ function renderLatest(){
 }
 function renderLog(){ const log=$("log"); log.innerHTML=[...events].reverse().map(ev=>`<div class="log-item ${esc(ev.pill||"")}"><div class="log-top"><span class="log-title">${esc(logTitle(ev))}</span><span class="log-time">${esc(ev.time||"")}</span></div><div class="log-text">${esc(ev.summary||ev.text||"")}</div></div>`).join("") || '<div class="log-item"><div class="log-text">Журнал пуст.</div></div>'; }
 function logTitle(ev){ if(ev.type==="roll") return `${ev.actor} · ${ev.title} · ${ev.resultLabel}`; if(ev.type==="damage") return `${ev.actor} · ${ev.title}`; if(ev.type==="chat") return `${ev.actor} · запись`; if(ev.type==="scene") return `Сцена · ${ev.actor}`; return ev.title || ev.actor || "System"; }
-function toggleJournal(open){ const j=$("journal"); const next=typeof open==="boolean"?open:!j.classList.contains("open"); j.classList.toggle("open",next); j.setAttribute("aria-hidden",String(!next)); }
+function toggleJournal(open){ const j=$("journal"), b=$("toggle-log-btn"); const next=typeof open==="boolean"?open:!j.classList.contains("open"); j.classList.toggle("open",next); if(b) b.classList.toggle("active",next); j.setAttribute("aria-hidden",String(!next)); }
 function addChat(text,type="chat"){ const t=String(text||"").trim(); if(!t) return; broadcastEvent({id:uid(),type,actor:currentChar().name,text:t,summary:t,pill:"info",ts:Date.now(),time:nowTime()}); }
 
 function importCharacter(data,fileName=""){
@@ -234,7 +249,7 @@ function bind(){
   document.querySelectorAll('[data-step]').forEach(b=>b.onclick=()=>{ const key=b.dataset.step, d=Number(b.dataset.delta); if(key==="adv") adv=clamp(adv+d,0,9); if(key==="dis") dis=clamp(dis+d,0,9); renderAll(); });
   $("skill-select").onchange=()=>renderDiceEditor(); $("die-1").onchange=applyDiceEditor; $("die-2").onchange=applyDiceEditor;
   $("roll-skill-btn").onclick=rollSkill; $("roll-damage-btn").onclick=rollDamage;
-  $("new-turn-btn").onclick=()=>{ currentChar().od=3; saveLocal(); renderAll(); saveRoomState(); };
+  $("new-turn-btn").onclick=()=>{ const c=currentChar(); c.od=3; c.overflowOtp=0; saveLocal(); renderAll(); saveRoomState(); };
   $("toggle-log-btn").onclick=()=>toggleJournal(); $("close-log-btn").onclick=()=>toggleJournal(false);
   $("chat-form").onsubmit=e=>{ e.preventDefault(); addChat($("chat-input").value,"chat"); $("chat-input").value=""; };
   $("scene-form").onsubmit=e=>{ e.preventDefault(); addChat($("scene-input").value,"scene"); $("scene-input").value=""; };

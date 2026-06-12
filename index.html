@@ -3,17 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Scarlet Frontier HUD v0.15.14</title>
+  <title>Scarlet Frontier HUD v0.15.15</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=1514" />
+  <link rel="stylesheet" href="style.css?v=1515" />
 </head>
 <body>
   <main class="hud-shell">
     <header class="topbar panel">
       <div class="brandpack">
         <div class="kicker">SCARLET FRONTIER</div>
-        <div class="title">PLAYER HUD <span>v0.15.14</span></div>
+        <div class="title">PLAYER HUD <span>v0.15.15</span></div>
       </div>
       <div class="damage-track" title="Трек урона / ранений">
         <div class="damage-main">
@@ -72,11 +72,11 @@
             <span>Проверка</span>
             <select id="skill-select"></select>
           </label>
-          <label class="field dice"><span>Кость 1</span><select id="die-1"></select></label>
-          <label class="field dice"><span>Кость 2</span><select id="die-2"></select></label>
+          <label class="field dice"><span>К1</span><select id="die-1"></select></label>
+          <label class="field dice"><span>К2</span><select id="die-2"></select></label>
           <label class="field tn"><span>TN</span><select id="tn"><option>3</option><option selected>4</option><option>5</option><option>6</option><option>7</option></select></label>
-          <div class="mini-step adv"><span>+К</span><button data-step="adv" data-delta="-1">−</button><b id="adv-val">0</b><button data-step="adv" data-delta="1">+</button></div>
-          <div class="mini-step dis"><span>−К</span><button data-step="dis" data-delta="-1">−</button><b id="dis-val">0</b><button data-step="dis" data-delta="1">+</button></div>
+          <div class="mini-step adv" title="Преимущество"><span>П+</span><button data-step="adv" data-delta="-1">−</button><b id="adv-val">0</b><button data-step="adv" data-delta="1">+</button></div>
+          <div class="mini-step dis" title="Помеха"><span>П−</span><button data-step="dis" data-delta="-1">−</button><b id="dis-val">0</b><button data-step="dis" data-delta="1">+</button></div>
           <label class="tiny-check"><input id="insurance" type="checkbox"><span>Страх.</span></label>
           <label class="tiny-check"><input id="zero" type="checkbox"><span>Зеро</span></label>
           <button class="big-btn" id="roll-skill-btn">БРОСОК</button>
@@ -86,7 +86,6 @@
           <label class="field ammo"><span>Боеприпас</span><select id="ammo-type"><option value="light">Лёгкий</option><option value="ap">Бронебойный</option><option value="exp">Экспансивный</option></select></label>
           <label class="field tsp"><span>SP цели</span><input id="target-sp" type="number" min="0" max="99" value="0" /></label>
           <button class="damage-btn" id="roll-damage-btn">УРОН</button>
-          <form class="quick-note" id="chat-form"><input id="chat-input" placeholder="Факт / реплика…" autocomplete="off" /><button type="submit">Запись</button></form>
         </div>
       </section>
 
@@ -96,23 +95,26 @@
           <div class="last-title">Нет событий</div>
           <div class="last-body">Броски и урон появятся здесь у всех игроков с открытым HUD.</div>
         </div>
-        <div class="feed-card">
-          <div class="feed-label">Короткий лог</div>
-          <div id="recent-feed" class="recent-feed"></div>
-        </div>
+        <form class="quick-note side-note" id="chat-form">
+          <label class="field grow">
+            <span>Факт / реплика</span>
+            <input id="chat-input" placeholder="Короткая запись в общий журнал…" autocomplete="off" />
+          </label>
+          <button type="submit">Запись</button>
+        </form>
       </section>
     </section>
   </main>
 
   <aside class="journal" id="journal" aria-hidden="true">
     <div class="journal-head">
-      <div><div class="kicker">ROOM FEED</div><b>Журнал комнаты</b></div>
+      <div><div class="kicker">ROOM FEED</div><b>Лог / журнал комнаты</b></div>
       <div class="journal-actions"><button id="export-log-btn">.txt</button><button id="clear-local-btn">Очистить</button><button id="close-log-btn">×</button></div>
     </div>
     <form class="scene-form" id="scene-form"><input id="scene-input" placeholder="Факт сцены, описание, решение ведущего…" autocomplete="off"><button type="submit">Добавить</button></form>
     <div class="log" id="log"></div>
   </aside>
 
-  <script type="module" src="main.js?v=1514"></script>
+  <script type="module" src="main.js?v=1515"></script>
 </body>
 </html>
