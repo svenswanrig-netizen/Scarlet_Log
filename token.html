@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Scarlet Token</title>
+  <title>Scarlet Token v0.6</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="token.css?v=050" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="token.css?v=060" />
 </head>
 <body>
   <main class="token-app">
@@ -19,22 +19,19 @@
     </header>
 
     <section class="res-grid">
-      <div class="res">
-        <span>ОТП</span>
-        <div><button data-res="otp" data-delta="-1">−</button><strong id="otp">0</strong><button data-res="otp" data-delta="1">+</button></div>
-      </div>
-      <div class="res">
-        <span>ОД</span>
-        <div><button data-res="od" data-delta="-1">−</button><strong id="od">3</strong><button data-res="od" data-delta="1">+</button></div>
-      </div>
-      <div class="res">
-        <span>SP</span>
-        <div><button data-res="sp" data-delta="-1">−</button><strong id="sp">0</strong><button data-res="sp" data-delta="1">+</button></div>
-      </div>
+      <div class="res"><span>ОТП</span><div><button data-res="otp" data-delta="-1">−</button><strong id="otp">0</strong><button data-res="otp" data-delta="1">+</button></div></div>
+      <div class="res"><span>ОД</span><div><button data-res="od" data-delta="-1">−</button><strong id="od">3</strong><button data-res="od" data-delta="1">+</button></div></div>
+      <div class="res"><span>SP</span><div><button data-res="sp" data-delta="-1">−</button><strong id="sp">0</strong><button data-res="sp" data-delta="1">+</button></div></div>
+    </section>
+
+    <section id="result" class="result empty">
+      <div class="rk">Результат появится здесь</div>
+      <div class="rt">Бросок ещё не сделан</div>
+      <div class="rb">После броска карточка сразу останется в этой панели и уйдёт всем в общий лог.</div>
     </section>
 
     <section class="card">
-      <div class="head">Быстрый бросок</div>
+      <div class="head">Бросок от токена</div>
       <div class="grid2">
         <label><span>Навык</span><input id="skill" value="Стрельба"></label>
         <label><span>TN</span><select id="tn"><option>3</option><option selected>4</option><option>5</option><option>6</option><option>7</option></select></label>
@@ -46,19 +43,16 @@
         <label class="check"><input id="ins" type="checkbox"> Страховка</label>
         <label class="check"><input id="zero" type="checkbox"> Зеро</label>
       </div>
-      <button id="roll" class="primary">Бросить в лог</button>
+      <button id="roll" class="primary">Бросить</button>
     </section>
 
     <section class="card compact">
-      <div class="head">Быстрое сообщение</div>
-      <form id="chat-form" class="chat-form">
-        <input id="chat" placeholder="Сообщение в лог…">
-        <button>→</button>
-      </form>
+      <div class="head">Сообщение в ленту</div>
+      <form id="chat-form" class="chat-form"><input id="chat" placeholder="Сообщение…"><button>→</button></form>
     </section>
 
     <footer id="status">Загрузка токена…</footer>
   </main>
-  <script type="module" src="token.js?v=050"></script>
+  <script type="module" src="token.js?v=060"></script>
 </body>
 </html>

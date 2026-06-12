@@ -3,81 +3,75 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Scarlet Frontier Log v0.5</title>
+  <title>Scarlet Frontier Log v0.6</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=050" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=060" />
 </head>
 <body>
   <main class="app">
     <header class="top">
       <div>
         <div class="kicker">Scarlet Frontier</div>
-        <h1>Online Log <span class="ver">v0.5</span></h1>
+        <h1>Боевой лог <span class="ver">v0.6</span></h1>
       </div>
-      <div class="status" id="net-status">offline</div>
+      <div class="status" id="net-status">подключение…</div>
     </header>
+
+    <section class="latest-card empty" id="latest-card">
+      <div class="latest-kicker">Последнее событие</div>
+      <div class="latest-title">Пока нет бросков</div>
+      <div class="latest-body">Открой расширение в комнате Owlbear. Выбери токен → Scarlet → бросок покажется здесь у всех.</div>
+    </section>
 
     <section class="card actor-card">
       <div class="row actor-row">
         <label class="field grow">
-          <span>Имя персонажа</span>
+          <span>Имя / кто пишет</span>
           <input id="actor-name" type="text" placeholder="Полли" autocomplete="off" />
         </label>
-        <button class="btn small" id="announce-btn">Войти</button>
+        <button class="btn small" id="sync-btn" title="Синхронизировать состояние с комнатой">Синхр.</button>
       </div>
       <div class="res-grid">
         <div class="res-box">
           <span class="res-label">ОТП</span>
-          <div class="res-line">
-            <button class="round" data-res="otp" data-delta="-1">−</button>
-            <strong id="otp-val">0</strong>
-            <button class="round" data-res="otp" data-delta="1">+</button>
-          </div>
+          <div class="res-line"><button class="round" data-res="otp" data-delta="-1">−</button><strong id="otp-val">0</strong><button class="round" data-res="otp" data-delta="1">+</button></div>
         </div>
         <div class="res-box">
           <span class="res-label">ОД</span>
-          <div class="res-line">
-            <button class="round" data-res="od" data-delta="-1">−</button>
-            <strong id="od-val">3</strong>
-            <button class="round" data-res="od" data-delta="1">+</button>
-          </div>
+          <div class="res-line"><button class="round" data-res="od" data-delta="-1">−</button><strong id="od-val">3</strong><button class="round" data-res="od" data-delta="1">+</button></div>
         </div>
         <div class="res-box">
           <span class="res-label">SP</span>
-          <div class="res-line">
-            <button class="round" data-res="sp" data-delta="-1">−</button>
-            <strong id="sp-val">0</strong>
-            <button class="round" data-res="sp" data-delta="1">+</button>
-          </div>
+          <div class="res-line"><button class="round" data-res="sp" data-delta="-1">−</button><strong id="sp-val">0</strong><button class="round" data-res="sp" data-delta="1">+</button></div>
         </div>
       </div>
     </section>
 
     <nav class="tabs">
-      <button class="tab on" data-tab="rolls">Броски</button>
-      <button class="tab" data-tab="chat">Лента ↑</button>
+      <button class="tab on" data-tab="combat">Бой</button>
+      <button class="tab" data-tab="feed">Лента</button>
       <button class="tab" data-tab="state">Состояние</button>
     </nav>
 
-    <section class="panel on" id="tab-rolls">
-      <div class="card">
-        <div class="card-head">Проверка навыка</div>
+    <section class="panel on" id="tab-combat">
+      <div class="card compact-card">
+        <div class="card-head">Быстрая проверка из панели</div>
         <div class="grid2">
           <label class="field"><span>Навык</span><input id="skill-name" value="Стрельба" /></label>
           <label class="field"><span>TN</span><select id="tn"><option>3</option><option selected>4</option><option>5</option><option>6</option><option>7</option></select></label>
-          <label class="field"><span>Костей навыка</span><select id="skill-count"><option>0</option><option selected>1</option><option>2</option></select></label>
-          <label class="field"><span>Номинал навыка</span><select id="skill-die"><option>d4</option><option selected>d6</option><option>d8</option><option>d10</option><option>d12</option></select></label>
+          <label class="field"><span>Костей</span><select id="skill-count"><option>0</option><option selected>1</option><option>2</option></select></label>
+          <label class="field"><span>Кость</span><select id="skill-die"><option>d4</option><option selected>d6</option><option>d8</option><option>d10</option><option>d12</option></select></label>
           <label class="field"><span>Атрибут</span><select id="attr-die"><option>d4</option><option>d6</option><option selected>d8</option><option>d10</option><option>d12</option></select></label>
           <label class="field"><span>Преим.</span><input id="adv" type="number" min="0" max="6" value="0" /></label>
           <label class="field"><span>Помех.</span><input id="dis" type="number" min="0" max="6" value="0" /></label>
-          <label class="check"><input id="insurance" type="checkbox" /> Страховка за 1 ОТП</label>
+          <label class="check"><input id="insurance" type="checkbox" /> Страховка</label>
           <label class="check"><input id="zero" type="checkbox" /> Зеро</label>
         </div>
-        <button class="btn primary wide" id="roll-skill-btn">Бросить проверку</button>
+        <button class="btn primary wide" id="roll-skill-btn">Бросить</button>
       </div>
 
-      <div class="card">
+      <div class="card compact-card">
         <div class="card-head">Урон</div>
         <div class="grid2">
           <label class="field"><span>Оружие</span><input id="weapon-name" value="Оружие" /></label>
@@ -88,15 +82,19 @@
         </div>
         <button class="btn primary wide" id="roll-damage-btn">Бросить урон</button>
       </div>
+
+      <div class="tip-card">
+        <b>Удобный поток:</b> выбери токен на карте → Scarlet → бросай из мини-панели токена. Здесь сверху у всех появится последний результат, а ниже останется архив.
+      </div>
     </section>
 
-    <section class="panel" id="tab-chat">
+    <section class="panel" id="tab-feed">
       <div class="card chat-card">
         <div class="card-head row between">
-          <span>Общая лента <small>новые сверху</small></span>
+          <span>Архив событий <small>новые сверху</small></span>
           <button class="link-btn" id="clear-local-btn">Очистить у себя</button>
         </div>
-        <div class="log" id="log"></div>
+        <div class="log compact-log" id="log"></div>
         <form class="chat-form" id="chat-form">
           <input id="chat-input" type="text" placeholder="Сообщение в комнату…" autocomplete="off" />
           <button class="btn" type="submit">Отправить</button>
@@ -107,15 +105,15 @@
 
     <section class="panel" id="tab-state">
       <div class="card">
-        <div class="card-head">Персонажи в комнате</div>
+        <div class="card-head">Персонажи / токены в комнате</div>
         <div class="actors" id="actors-list"></div>
       </div>
       <div class="note">
-        Это пробная сетевая версия v0.5. Лента отправляется через Owlbear Broadcast и дублируется в metadata комнаты. Новые сообщения и броски показываются сверху. Когда расширение открыто в Owlbear, выбери токен на карте и нажми Scarlet в контекстном меню — откроется мини-панель токена.
+        v0.6: результат броска показывается сразу наверху у всех, а в токен-панели — прямо после нажатия. Лог теперь архив, а не главный экран.
       </div>
     </section>
   </main>
 
-  <script type="module" src="main.js?v=050"></script>
+  <script type="module" src="main.js?v=060"></script>
 </body>
 </html>
