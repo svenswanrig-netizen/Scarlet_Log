@@ -1,7 +1,7 @@
-const CHANNEL = "scarlet-frontier-log-v4";
-const META_KEY = "com.scarletfrontier.log/v4";
+const CHANNEL = "scarlet-frontier-log-v5";
+const META_KEY = "com.scarletfrontier.log/v5";
 const MAX_EVENTS = 40;
-const STORAGE_KEY = "scarlet-log-network-v4";
+const STORAGE_KEY = "scarlet-log-network-v5";
 
 let OBR = null;
 let online = false;
@@ -77,7 +77,8 @@ async function loadSdk() {
     setupBroadcast();
     setupRoomMetadataSync();
     await loadRoomState();
-    addSystem("Расширение подключено к комнате Owlbear.", false);
+    setupTokenContextMenu();
+    addSystem("Расширение подключено к комнате Owlbear. Выбери токен и нажми Scarlet в контекстном меню для мини-панели.", false);
   } catch (err) {
     online = false;
     $("net-status").textContent = "local mode";
@@ -211,6 +212,60 @@ function addSystemLocal(text) {
 function addSystem(text, network = true) {
   const ev = { id: uid(), ts: Date.now(), type: "system", actor: "System", time: nowTime(), text };
   return network ? broadcastEvent(ev) : addEventLocal(ev, true);
+}
+
+
+function defaultTokenState(item) {
+  return {
+    actor: state.actor || item?.name || "Оперативник",
+    otp: state.otp || 0,
+    od: state.od || 3,
+    sp: state.sp || 0,
+    otpMax: state.otpMax || 3
+  };
+}
+
+async function setupTokenContextMenu() {
+  if (!OBR?.contextMenu || !OBR?.popover) return;
+  try {
+    await OBR.contextMenu.create({
+      id: "com.scarletfrontier.log/token-menu-v05",
+      icons: [
+        {
+          icon: "https://svenswanrig-netizen.github.io/Scarlet_Log/icon.svg?v=050",
+          label: "Scarlet"
+        }
+      ],
+      async onClick(context, elementId) {
+        const item = context?.items?.[0];
+        if (!item) return;
+        const current = item.metadata?.["com.scarletfrontier.log/token"] || defaultTokenState(item);
+        await OBR.scene.items.updateItems([item], (items) => {
+          for (const it of items) {
+            it.metadata["com.scarletfrontier.log/token"] = {
+              ...current,
+              actor: current.actor || it.name || "Оперативник",
+              updated: Date.now()
+            };
+          }
+        });
+        const url = `https://svenswanrig-netizen.github.io/Scarlet_Log/token.html?v=050&item=${encodeURIComponent(item.id)}`;
+        await OBR.popover.open({
+          id: "com.scarletfrontier.log/token-popover",
+          url,
+          height: 430,
+          width: 330,
+          anchorElementId: elementId,
+          anchorOrigin: { horizontal: "CENTER", vertical: "TOP" },
+          transformOrigin: { horizontal: "CENTER", vertical: "BOTTOM" },
+          marginThreshold: 12
+        });
+      }
+    });
+  } catch (err) {
+    console.warn("token context menu setup failed", err);
+    addSystemLocal("Контекстное меню токена не подключилось. Проверь, что открыта сцена Owlbear.");
+  }
 }
 
 function renderLog() {
