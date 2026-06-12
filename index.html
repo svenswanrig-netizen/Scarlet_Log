@@ -3,24 +3,27 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Scarlet Frontier Log v0.10</title>
+  <title>Scarlet Frontier Log v0.11</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=100" />
+  <link rel="stylesheet" href="style.css?v=110" />
 </head>
 <body>
   <main class="app">
     <header class="topbar">
       <div class="brand">
         <div class="kicker">Scarlet Frontier</div>
-        <h1>Нижний HUD <span>v0.10</span></h1>
+        <h1>Нижний HUD <span>v0.11</span></h1>
       </div>
       <div class="top-actions">
-        <button class="ghost" id="import-btn">JSON</button>
-        <button class="ghost" id="open-sheet-btn">Лист</button>
+        <button class="ghost" id="import-btn" title="Загрузить JSON из полного листа">JSON</button>
+        <button class="ghost" id="open-sheet-btn" title="Открыть полный лист активного персонажа">Лист</button>
         <input id="file-input" type="file" accept=".json,application/json" hidden />
         <button class="ghost" id="new-char-btn">+ Перс.</button>
-        <button class="ghost" id="toggle-log-btn" aria-expanded="false">Журнал</button>
+        <button class="ghost" id="new-turn-btn" title="Выставить ОД 3 и записать новый ход">Новый ход</button>
+        <button class="ghost" id="compact-btn" aria-pressed="false" title="Свернуть/развернуть нижний HUD">Компакт</button>
+        <button class="ghost" id="toggle-log-btn" aria-expanded="false">Журнал ▾</button>
+        <div class="kbd-hints">Ctrl+Enter бросок · Shift+Enter урон · J журнал</div>
         <div class="status" id="net-status">подключение…</div>
       </div>
     </header>
@@ -104,6 +107,6 @@
     </section>
   </main>
   <div id="toast-stack" class="toast-stack" aria-live="polite"></div>
-  <script type="module" src="main.js?v=100"></script>
+  <script type="module" src="main.js?v=110"></script>
 </body>
 </html>

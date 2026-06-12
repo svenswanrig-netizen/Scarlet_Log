@@ -1,8 +1,9 @@
-const VERSION = "080";
-const CHANNEL = "scarlet-frontier-log-v8";
-const META_KEY = "com.scarletfrontier.log/v8";
-const MAX_EVENTS = 50;
-const STORAGE_KEY = "scarlet-log-clean-v9";
+const VERSION = "110";
+const CHANNEL = "scarlet-frontier-log-v11";
+const META_KEY = "com.scarletfrontier.log/v11";
+const MAX_EVENTS = 60;
+const STORAGE_KEY = "scarlet-log-hud-v11";
+const UI_KEY = "scarlet-log-ui-v11";
 
 const SKILLS = [
   { n:"Насилие", a:"ТЕЛО", attr:"attrBody" }, { n:"Атлетика", a:"ТЕЛО", attr:"attrBody" }, { n:"Стойкость", a:"ТЕЛО", attr:"attrBody" }, { n:"Выживание", a:"ТЕЛО", attr:"attrBody" },
@@ -18,6 +19,7 @@ let events = [];
 let roomActors = {};
 let state = { activeId:"", chars:{} };
 let adv = 0, dis = 0;
+let ui = { compact:false, logOpen:false };
 
 const $ = id => document.getElementById(id);
 const clamp = (n,min,max) => Math.max(min, Math.min(max, Number(n)||0));
@@ -49,6 +51,22 @@ function loadLocal(){
   }catch(e){ console.warn(e); }
 }
 
+function loadUi(){
+  try{ const saved = JSON.parse(localStorage.getItem(UI_KEY)||"{}"); ui = { ...ui, ...saved }; }catch{}
+}
+function saveUi(){ localStorage.setItem(UI_KEY, JSON.stringify(ui)); }
+function applyUi(){
+  document.querySelector(".app")?.classList.toggle("compact", !!ui.compact);
+  const drawer = $("log-drawer");
+  if(drawer) drawer.classList.toggle("collapsed", !ui.logOpen);
+  const logBtn = $("toggle-log-btn");
+  if(logBtn){ logBtn.setAttribute("aria-expanded", ui.logOpen ? "true" : "false"); logBtn.textContent = ui.logOpen ? "Журнал ▴" : "Журнал ▾"; }
+  const compactBtn = $("compact-btn");
+  if(compactBtn){ compactBtn.setAttribute("aria-pressed", ui.compact ? "true" : "false"); compactBtn.textContent = ui.compact ? "Развернуть" : "Компакт"; }
+}
+function toggleLog(){ ui.logOpen = !ui.logOpen; saveUi(); applyUi(); }
+function toggleCompact(){ ui.compact = !ui.compact; if(ui.compact) ui.logOpen = false; saveUi(); applyUi(); }
+
 async function waitReady(){ if(OBR?.isReady) return; await new Promise(resolve=>{ const unsub = OBR.onReady(()=>{ try{unsub?.()}catch{} resolve(); }); }); }
 async function loadSdk(){
   try{
@@ -59,7 +77,7 @@ async function loadSdk(){
     $("net-status").textContent = "online"; $("net-status").className = "status online";
     setupBroadcast(); setupMetadataListener(); await loadRoomState();
     await publishActor();
-    if (!events.some(e => e.type === "system" && e.text?.includes("v0.8"))) addSystemLocal("Scarlet Log v0.8: горизонтальный пульт подключён. Результаты бросков всплывают у всех, у кого открыто расширение.");
+    if (!events.some(e => e.type === "system" && e.text?.includes("v0.11"))) addSystemLocal("Scarlet Log v0.11: нижний HUD отполирован. Ctrl+Enter — бросок, Shift+Enter — урон, J — журнал.");
   }catch(err){
     online = false;
     $("net-status").textContent = "local"; $("net-status").className = "status local";
@@ -203,13 +221,21 @@ function renderLatest(){
   if(ev.type==="chat") title = `${ev.actor} пишет`;
   box.innerHTML = `<div class="latest-label">Последний результат</div><div class="latest-title">${title}</div><div class="latest-body">${esc(body)}</div><div class="latest-meta">${esc(ev.time||"")} · ${esc(ev.type||"")}</div>`;
 }
+function compactEventLine(ev){
+  if(ev.type === "roll") return `${ev.actor || "—"} · ${ev.title} · ${ev.resultLabel}`;
+  if(ev.type === "damage") return `${ev.actor || "—"} · ${ev.title} · урон`;
+  if(ev.type === "resource") return `${ev.actor || "—"} · ресурсы`;
+  if(ev.type === "chat") return `${ev.actor || "—"} · запись`;
+  return `${ev.actor || "System"} · система`;
+}
 function renderLog(){
   const el = $("log"); if(!el) return;
   if(!events.length){ el.innerHTML = `<div class="event"><div class="event-body">Пока нет событий.</div></div>`; return; }
   el.innerHTML = [...events].reverse().map(ev => {
     const cls = `event ${ev.type||"system"} ${ev.pill||""}`;
-    let body = ev.text || ev.summary || ""; let title = ev.type==="roll" ? `${ev.title} · ${ev.resultLabel}` : ev.type==="damage" ? `${ev.title} · Урон` : ev.type==="chat" ? "Сообщение" : "Система";
-    return `<div class="${cls}"><div class="event-top"><span class="event-actor">${esc(ev.actor||"—")}</span><span class="event-time">${esc(ev.time||"")}</span></div><div class="event-title">${esc(title)}</div><div class="event-body">${esc(body)}</div></div>`;
+    const body = ev.text || ev.summary || "";
+    const title = compactEventLine(ev);
+    return `<div class="${cls}" title="Кликни/наведи, чтобы раскрыть детали"><div class="event-top"><span class="event-actor">${esc(title)}</span><span class="event-time">${esc(ev.time||"")}</span></div><div class="event-body">${esc(body)}</div></div>`;
   }).join("");
 }
 function renderAll(){ syncControls(); renderLatest(); renderLog(); }
@@ -286,28 +312,33 @@ function exportLog(){
   const lines = [...events].map(e => `[${e.time||""}] ${e.actor||"—"}: ${e.type==="roll"?`${e.title} — ${e.resultLabel}. `:""}${e.summary||e.text||""}`).join("\n\n");
   const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([lines],{type:"text/plain;charset=utf-8"})); a.download=`scarlet_log_${new Date().toISOString().slice(0,10)}.txt`; a.click(); URL.revokeObjectURL(a.href);
 }
+async function newTurn(){
+  const c = currentChar();
+  const before = { otp:c.otp, od:c.od, sp:c.sp };
+  c.od = 3;
+  saveLocal(); await publishActor(); renderAll();
+  await broadcastEvent({ id:uid(), type:"resource", actor:c.name, pill:"info", summary:`Новый ход. ОД ${before.od}→${c.od}. ОТП ${before.otp}/${c.otpMax}. SP ${before.sp}.`, resourcesAfter:{otp:c.otp, od:c.od, sp:c.sp}, ts:Date.now(), time:nowTime() });
+}
+
 function bind(){
   $("import-btn").onclick = () => $("file-input").click();
   $("open-sheet-btn").onclick = () => {
     saveLocal();
     const c = currentChar();
     const payload = btoa(unescape(encodeURIComponent(JSON.stringify(c))));
-    window.open(`fullsheet.html?v=090#${payload}`, "_blank");
+    window.open(`fullsheet.html?v=110#${payload}`, "_blank");
   };
   $("file-input").onchange = e => { const file=e.target.files?.[0]; if(!file) return; const r=new FileReader(); r.onload=ev=>{ try{ importCharacter(JSON.parse(ev.target.result), file.name); }catch(err){ alert("Не удалось прочитать JSON: "+err.message); } }; r.readAsText(file); e.target.value=""; };
   $("new-char-btn").onclick = async () => { const c=defaultChar("Оперативник"); state.chars[c.id]=c; state.activeId=c.id; saveLocal(); renderAll(); await publishActor(); };
+  $("new-turn-btn").onclick = newTurn;
+  $("compact-btn").onclick = toggleCompact;
   $("char-select").onchange = () => { state.activeId=$("char-select").value; saveLocal(); renderAll(); publishActor(); };
   $("char-name").onchange = async () => { const c=currentChar(); c.name=$("char-name").value.trim()||"Оперативник"; saveLocal(); renderAll(); await publishActor(); };
   document.querySelectorAll("[data-res]").forEach(b => b.onclick = () => changeResource(b.dataset.res, Number(b.dataset.delta)));
   document.querySelectorAll("[data-step]").forEach(b => b.onclick = () => { const key=b.dataset.step, delta=Number(b.dataset.delta); if(key==="adv") adv=clamp(adv+delta,0,6); if(key==="dis") dis=clamp(dis+delta,0,6); $("adv-val").textContent=adv; $("dis-val").textContent=dis; });
   $("roll-skill-btn").onclick = rollSkill; $("roll-damage-btn").onclick = rollDamage;
   $("chat-form").onsubmit = async e => { e.preventDefault(); const txt=$("chat-input").value.trim(); if(!txt) return; $("chat-input").value=""; const c=currentChar(); await broadcastEvent({ id:uid(), type:"chat", actor:c.name, pill:"info", text:txt, resourcesAfter:{otp:c.otp, od:c.od, sp:c.sp}, ts:Date.now(), time:nowTime() }); };
-  $("toggle-log-btn").onclick = () => {
-    const d=$("log-drawer");
-    const collapsed = d.classList.toggle("collapsed");
-    $("toggle-log-btn").setAttribute("aria-expanded", collapsed ? "false" : "true");
-    $("toggle-log-btn").textContent = collapsed ? "Журнал ▾" : "Журнал ▴";
-  };
+  $("toggle-log-btn").onclick = toggleLog;
   $("scene-form").onsubmit = async e => {
     e.preventDefault();
     const txt=$("scene-input").value.trim();
@@ -318,7 +349,15 @@ function bind(){
   };
   $("export-log-btn").onclick = exportLog;
   $("clear-local-btn").onclick = () => { if(confirm("Очистить локальный журнал? У других игроков он не удалится.")){ events=[]; seen=new Set(); saveLocal(); renderAll(); } };
+  document.addEventListener("keydown", e => {
+    const tag = (document.activeElement?.tagName || "").toLowerCase();
+    const typing = ["input","textarea","select"].includes(tag);
+    if(e.key.toLowerCase() === "j" && !typing){ e.preventDefault(); toggleLog(); }
+    if(e.key === "Enter" && e.ctrlKey){ e.preventDefault(); rollSkill(); }
+    if(e.key === "Enter" && e.shiftKey){ e.preventDefault(); rollDamage(); }
+    if(e.key === "Escape" && ui.logOpen){ e.preventDefault(); toggleLog(); }
+  });
 }
 
-loadLocal(); if(!Object.keys(state.chars).length){ const c=defaultChar(); state.chars[c.id]=c; state.activeId=c.id; }
-bind(); renderAll(); loadSdk();
+loadLocal(); loadUi(); if(!Object.keys(state.chars).length){ const c=defaultChar(); state.chars[c.id]=c; state.activeId=c.id; }
+bind(); applyUi(); renderAll(); loadSdk();
