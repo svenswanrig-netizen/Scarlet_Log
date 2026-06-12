@@ -1,7 +1,7 @@
-const VERSION="150";
-const CHANNEL="scarlet-frontier-hud-v15";
-const META_KEY="com.scarletfrontier.hud/v15";
-const STORAGE_KEY="scarlet-hud-v15";
+const VERSION="152";
+const CHANNEL="scarlet-frontier-hud-v15-2";
+const META_KEY="com.scarletfrontier.hud/v15.2";
+const STORAGE_KEY="scarlet-hud-v15-2";
 const MAX_EVENTS=80;
 const SKILLS=[
   {n:"Насилие",attr:"attrBody"},{n:"Атлетика",attr:"attrBody"},{n:"Стойкость",attr:"attrBody"},{n:"Выживание",attr:"attrBody"},
@@ -108,7 +108,7 @@ function syncControls(){
   const cs=$("char-select"); cs.innerHTML=Object.values(state.chars).map(ch=>`<option value="${esc(ch.id)}"${ch.id===state.activeId?" selected":""}>${esc(ch.name||"Оперативник")}</option>`).join("");
   renderSkillOptions(); renderWeaponOptions(); $("adv-val").textContent=adv; $("dis-val").textContent=dis;
 }
-function renderAll(){ syncControls(); renderLatest(); renderLog(); }
+function renderAll(){ syncControls(); renderLatest(); renderRecentFeed(); renderLog(); }
 function renderResourcePips(key,value,max){
   const box=$(`${key}-pips`); box.innerHTML="";
   for(let i=0;i<max;i++){
@@ -128,10 +128,15 @@ async function setDamageCount(next){
   if(from!==to){ const text=transitionText(c.name,from,to); if(text) await broadcastEvent({id:uid(),type:"system",actor:"System",title:"Состояние",summary:text,text,pill:"damage",ts:Date.now(),time:nowTime()}); }
 }
 function renderDamagePips(){
-  const c=currentChar(), box=$("damage-pips"); box.innerHTML=""; const kinds=["light","light","light","light","medium","medium","heavy","critical"];
+  const c=currentChar(), box=$("damage-pips");
+  box.innerHTML="";
+  const kinds=["light","light","light","light","medium","medium","heavy","critical"];
   for(let i=0;i<8;i++){
-    const b=document.createElement("button"); b.type="button"; b.className=`dmg-pip ${kinds[i]} ${i<c.damageCount?"on":""}`; b.title=`${i+1}`;
-    b.onclick=()=>setDamageCount(c.damageCount===i+1 ? i : i+1); box.appendChild(b);
+    const b=document.createElement("button");
+    b.type="button"; b.className=`dmg-pip ${kinds[i]} ${i<c.damageCount?"on":""}`; b.title=`${i+1}`;
+    b.onclick=()=>setDamageCount(c.damageCount===i+1 ? i : i+1);
+    box.appendChild(b);
+    if(i===3 || i===5 || i===6){ const sep=document.createElement("span"); sep.className="dmg-sep"; box.appendChild(sep); }
   }
 }
 
@@ -182,6 +187,13 @@ async function rollDamage(){
   const ammoLabel={light:"Лёгкий",ap:"Бронебойный",exp:"Экспансивный"}[ammo]; const exText=explosions.length?` + взрыв ${explosions.join(", ")}`:""; const spText=ammo==="ap"?`SP ${targetSp}→${effSp}`:`SP ${effSp}`;
   const summary=`${w.name}: ${w.dmgCount}${w.dmgDie} → ${rolls.join(", ")}${exText}; ${spText}; итог ${final}`;
   await broadcastEvent({id:uid(),type:"damage",actor:c.name,title:`Урон · ${ammoLabel}`,pill:"damage",summary,ts:Date.now(),time:nowTime()});
+}
+
+
+function renderRecentFeed(){
+  const box=$("recent-feed"); if(!box) return;
+  const items=[...events].reverse().filter(ev=>["roll","damage"].includes(ev.type)).slice(0,2);
+  box.innerHTML=items.map(ev=>`<div class="feed-row"><span class="t">${esc(ev.time||"")}</span><b>${esc(ev.actor||"Система")}</b> — ${esc(ev.resultLabel || ev.title || ev.type)}<br>${esc(ev.summary||ev.text||"")}</div>`).join("") || '<div class="feed-row">Пока нет бросков.</div>';
 }
 
 function renderLatest(){

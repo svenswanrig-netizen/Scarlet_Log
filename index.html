@@ -3,24 +3,24 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Scarlet Frontier HUD v0.15</title>
+  <title>Scarlet Frontier HUD v0.15.2</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=150" />
+  <link rel="stylesheet" href="style.css?v=152" />
 </head>
 <body>
   <main class="hud-shell">
     <header class="topbar panel">
       <div class="brandpack">
         <div class="kicker">SCARLET FRONTIER</div>
-        <div class="title">PLAYER HUD <span>v0.15</span></div>
+        <div class="title">PLAYER HUD <span>v0.15.2</span></div>
       </div>
       <div class="damage-track" title="Трек урона / ранений">
         <span class="track-label">Урон</span>
         <div id="damage-pips" class="damage-pips"></div>
       </div>
       <div class="top-actions">
-        <button id="new-turn-btn">Ход</button>
+        <button id="new-turn-btn">Новый ход</button>
         <button id="import-btn">JSON</button>
         <button id="open-sheet-btn">Лист</button>
         <button id="toggle-log-btn">Журнал</button>
@@ -89,6 +89,10 @@
           <div class="last-title">Нет событий</div>
           <div class="last-body">Броски и урон появятся здесь у всех игроков с открытым HUD.</div>
         </div>
+        <div class="feed-card">
+          <div class="feed-label">Короткий лог</div>
+          <div id="recent-feed" class="recent-feed"></div>
+        </div>
       </section>
     </section>
   </main>
@@ -103,6 +107,6 @@
   </aside>
 
   <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
-  <script type="module" src="main.js?v=150"></script>
+  <script type="module" src="main.js?v=152"></script>
 </body>
 </html>
