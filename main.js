@@ -1,7 +1,7 @@
-const VERSION="1512";
-const CHANNEL="scarlet-frontier-hud-v15-1-wide";
-const META_KEY="com.scarletfrontier.hud/v15.12";
-const STORAGE_KEY="scarlet-hud-v15-1-wide";
+const VERSION="1513";
+const CHANNEL="scarlet-frontier-hud-v15-13";
+const META_KEY="com.scarletfrontier.hud/v15.13";
+const STORAGE_KEY="scarlet-hud-v15-13";
 const MAX_EVENTS=80;
 const SKILLS=[
   {n:"Насилие",attr:"attrBody"},{n:"Атлетика",attr:"attrBody"},{n:"Стойкость",attr:"attrBody"},{n:"Выживание",attr:"attrBody"},
@@ -133,7 +133,7 @@ function renderDamagePips(){
   const kinds=["light","light","light","light","medium","medium","heavy","critical"];
   for(let i=0;i<8;i++){
     const b=document.createElement("button");
-    b.type="button"; b.className=`dmg-pip ${kinds[i]} ${i<c.damageCount?"on":""}`; b.title=`${i+1}`;
+    b.type="button"; b.className=`dmg-pip ${kinds[i]} ${i<c.damageCount?"on":""}`; const rangeTitle=(i<3?"1–3":(i<7?"4–7":"8–10")); b.title=`Урон ${rangeTitle}`;
     b.onclick=()=>setDamageCount(c.damageCount===i+1 ? i : i+1);
     box.appendChild(b);
     if(i===3 || i===5 || i===6){ const sep=document.createElement("span"); sep.className="dmg-sep"; box.appendChild(sep); }

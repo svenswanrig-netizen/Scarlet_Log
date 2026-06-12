@@ -70,3 +70,49 @@ select:focus,input:focus{border-color:var(--red2); box-shadow:0 0 0 2px rgba(211
 .feed-card{padding:6px 8px;border-radius:10px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);overflow:hidden}.feed-label{font-size:8px;color:var(--dim);text-transform:uppercase;letter-spacing:.12em;font-weight:900;margin-bottom:4px}.recent-feed{display:flex;flex-direction:column;gap:4px}.feed-row{padding:4px 6px;border-radius:8px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.045);font-family:var(--m);font-size:9px;line-height:1.22;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.feed-row b{color:#e9edf6;font-family:var(--f);font-size:10px}.feed-row .t{color:var(--dim);float:right;margin-left:8px}
 
 @media(min-width:1500px){.skill{flex:1 1 210px;min-width:150px}.weapon{flex:1 1 250px;min-width:180px}.quick-note{flex:1 1 260px;min-width:180px}}
+
+
+/* v0.15.13 compact horizontal polish */
+body{min-width:1720px}
+.topbar{grid-template-columns:180px minmax(500px,1fr) auto; gap:8px; padding:5px 10px}
+.top-actions button{height:24px; padding:0 8px; font-size:10px}
+.damage-track{padding:2px 7px}
+.hud-grid{grid-template-columns:250px minmax(980px,1fr) 300px; gap:6px}
+.left,.center,.right{height:132px; padding:6px 8px}
+.track,.sp-chip{padding:5px}
+.charline{gap:4px}
+.resources{margin-top:5px; gap:4px; grid-template-columns:1fr 1fr 64px}
+.track-head{margin-bottom:3px}
+.track-head b{font-size:13px}
+.pips{gap:4px; min-height:16px}
+.res-pip{width:16px; height:16px}
+.sp-chip{display:grid; grid-template-columns:18px 22px 18px; grid-template-rows:10px 20px; align-items:center; justify-items:center; gap:2px; overflow:hidden}
+.sp-chip span{grid-column:1/4; grid-row:1; justify-self:start}
+.sp-chip button:first-of-type{grid-column:1; grid-row:2}
+.sp-chip b{grid-column:2; grid-row:2; text-align:center; font-family:var(--m); font-size:14px}
+.sp-chip button:last-of-type{grid-column:3; grid-row:2}
+.sp-chip button{width:18px; height:18px; padding:0; border-radius:50%}
+select,input{height:26px; padding:0 7px; font-size:11px}
+.rollbar,.damagebar{gap:4px}
+.skill{flex:1 1 230px; min-width:170px}
+.weapon{flex:1 1 240px; min-width:170px}
+.dice{flex:0 0 58px}.tn{flex:0 0 46px}.ammo{flex:0 0 94px}.tsp{flex:0 0 52px}
+.mini-step{height:38px; min-width:58px; grid-template-columns:17px 18px 17px; grid-template-rows:9px 24px}
+.mini-step b{font-size:10px}
+.mini-step button{height:24px}
+.tiny-check{height:24px; padding:0 5px; font-size:10px}
+.big-btn,.damage-btn{height:26px; min-width:72px; padding:0 10px; font-size:11px}
+.quick-note{flex:1 1 180px; min-width:140px; gap:4px}
+.quick-note button{height:26px; padding:0 8px; font-size:10px}
+.right{grid-template-rows:63px 57px; gap:4px}
+.last-card{padding:6px 8px}
+.last-label,.feed-label{margin-bottom:3px}
+.last-title{font-size:14px; margin-bottom:2px}
+.last-body{font-size:9px; line-height:1.2; -webkit-line-clamp:1}
+.last-meta{bottom:5px; right:7px}
+.feed-card{padding:5px 6px}
+.recent-feed{gap:3px}
+.feed-row{padding:3px 5px; font-size:9px; line-height:1.15}
+.feed-row b{font-size:9px}
+.toast-stack{right:16px; bottom:152px}
+@media(min-width:1700px){.hud-grid{grid-template-columns:255px minmax(1040px,1fr) 310px}}
