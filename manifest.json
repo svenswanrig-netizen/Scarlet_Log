@@ -1,15 +1,15 @@
 {
   "name": "Scarlet Frontier Log",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "manifest_version": 1,
-  "description": "Нижний HUD, журнал, ОТП/ОД и броски Scarlet Frontier.",
+  "description": "Нижний HUD, журнал и броски Scarlet Frontier.",
   "author": "Scarlet Frontier",
-  "icon": "https://svenswanrig-netizen.github.io/Scarlet_Log/icon.svg?v=120",
+  "icon": "https://svenswanrig-netizen.github.io/Scarlet_Log/icon.svg?v=130",
   "action": {
     "title": "Scarlet Log",
-    "icon": "https://svenswanrig-netizen.github.io/Scarlet_Log/icon.svg?v=120",
-    "popover": "https://svenswanrig-netizen.github.io/Scarlet_Log/index.html?v=120",
-    "height": 255,
+    "icon": "https://svenswanrig-netizen.github.io/Scarlet_Log/icon.svg?v=130",
+    "popover": "https://svenswanrig-netizen.github.io/Scarlet_Log/index.html?v=130",
+    "height": 315,
     "width": 1200
   }
 }

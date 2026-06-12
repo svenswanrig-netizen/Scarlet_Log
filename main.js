@@ -1,9 +1,9 @@
-const VERSION = "120";
-const CHANNEL = "scarlet-frontier-log-v12";
-const META_KEY = "com.scarletfrontier.log/v12";
+const VERSION = "130";
+const CHANNEL = "scarlet-frontier-log-v13";
+const META_KEY = "com.scarletfrontier.log/v13";
 const MAX_EVENTS = 60;
-const STORAGE_KEY = "scarlet-log-hud-v12";
-const UI_KEY = "scarlet-log-ui-v12";
+const STORAGE_KEY = "scarlet-log-hud-v13";
+const UI_KEY = "scarlet-log-ui-v13";
 
 const SKILLS = [
   { n:"Насилие", a:"ТЕЛО", attr:"attrBody" }, { n:"Атлетика", a:"ТЕЛО", attr:"attrBody" }, { n:"Стойкость", a:"ТЕЛО", attr:"attrBody" }, { n:"Выживание", a:"ТЕЛО", attr:"attrBody" },
@@ -19,7 +19,7 @@ let events = [];
 let roomActors = {};
 let state = { activeId:"", chars:{} };
 let adv = 0, dis = 0;
-let ui = { compact:false, logOpen:false };
+let ui = { logOpen:false };
 
 const $ = id => document.getElementById(id);
 const clamp = (n,min,max) => Math.max(min, Math.min(max, Number(n)||0));
@@ -56,16 +56,12 @@ function loadUi(){
 }
 function saveUi(){ localStorage.setItem(UI_KEY, JSON.stringify(ui)); }
 function applyUi(){
-  document.querySelector(".app")?.classList.toggle("compact", !!ui.compact);
   const drawer = $("log-drawer");
   if(drawer) drawer.classList.toggle("collapsed", !ui.logOpen);
   const logBtn = $("toggle-log-btn");
-  if(logBtn){ logBtn.setAttribute("aria-expanded", ui.logOpen ? "true" : "false"); logBtn.textContent = ui.logOpen ? "Журнал ▴" : "Журнал ▾"; }
-  const compactBtn = $("compact-btn");
-  if(compactBtn){ compactBtn.setAttribute("aria-pressed", ui.compact ? "true" : "false"); compactBtn.textContent = ui.compact ? "Развернуть" : "Компакт"; }
+  if(logBtn){ logBtn.setAttribute("aria-expanded", ui.logOpen ? "true" : "false"); logBtn.textContent = ui.logOpen ? "Журнал ◂" : "Журнал ▸"; }
 }
 function toggleLog(){ ui.logOpen = !ui.logOpen; saveUi(); applyUi(); }
-function toggleCompact(){ ui.compact = !ui.compact; if(ui.compact) ui.logOpen = false; saveUi(); applyUi(); }
 
 async function waitReady(){ if(OBR?.isReady) return; await new Promise(resolve=>{ const unsub = OBR.onReady(()=>{ try{unsub?.()}catch{} resolve(); }); }); }
 async function loadSdk(){
@@ -77,7 +73,7 @@ async function loadSdk(){
     $("net-status").textContent = "online"; $("net-status").className = "status online";
     setupBroadcast(); setupMetadataListener(); await loadRoomState();
     await publishActor();
-    if (!events.some(e => e.type === "system" && e.text?.includes("v0.11"))) addSystemLocal("Scarlet Log v0.12: добавлен ручной выбор костей навыка. Ctrl+Enter — бросок, Shift+Enter — урон, J — журнал.");
+    if (!events.some(e => e.type === "system" && e.text?.includes("v0.13"))) addSystemLocal("Scarlet Log v0.13: визуальные ОТП/ОД, боковой журнал. Ctrl+Enter — бросок, Shift+Enter — урон, Ctrl+J — журнал.");
   }catch(err){
     online = false;
     $("net-status").textContent = "local"; $("net-status").className = "status local";
@@ -193,10 +189,31 @@ function importCharacter(data, fileName=""){
 function syncControls(){
   const c = currentChar();
   $("char-name").value = c.name || ""; $("otp-val").textContent = c.otp; $("otp-max").textContent = `/${c.otpMax||3}`; $("od-val").textContent = c.od; $("sp-val").textContent = c.sp;
+  renderResourcePips("otp", c.otp, c.otpMax || 3);
+  renderResourcePips("od", c.od, Math.max(4, c.od || 3));
   const sel = $("char-select"); const old = sel.value;
   sel.innerHTML = Object.values(state.chars).map(ch => `<option value="${esc(ch.id)}"${ch.id===state.activeId?" selected":""}>${esc(ch.name||"Оперативник")}</option>`).join("");
   if(old && state.chars[old]) sel.value = state.activeId;
   renderSkillOptions(); renderWeaponOptions();
+}
+function renderResourcePips(key, value, max){
+  const box = $(`${key}-pips`); if(!box) return;
+  box.innerHTML = "";
+  for(let i=0;i<max;i++){
+    const p=document.createElement("button");
+    p.type="button";
+    p.className=`res-pip ${i<value?"on":""}`;
+    p.title=`${key.toUpperCase()} ${i+1}`;
+    p.onclick=()=>setResourceValue(key, value===i+1 ? i : i+1);
+    box.appendChild(p);
+  }
+}
+async function setResourceValue(key, value){
+  const c=currentChar(); const before={otp:c.otp, od:c.od, sp:c.sp};
+  if(key==="otp") c.otp=clamp(value,0,c.otpMax||3);
+  if(key==="od") c.od=clamp(value,0,9);
+  saveLocal(); await publishActor(); renderAll();
+  await broadcastEvent({ id:uid(), type:"resource", actor:c.name, pill:"info", summary:`ОТП ${before.otp}→${c.otp} · ОД ${before.od}→${c.od} · SP ${before.sp}→${c.sp}`, resourcesAfter:{otp:c.otp, od:c.od, sp:c.sp}, ts:Date.now(), time:nowTime() });
 }
 function skillSummary(skill){ return skill.dice?.length ? `${skill.n} · ${skill.dice.join("+")}` : `${skill.n} · Зеро`; }
 function renderSkillOptions(){
@@ -342,12 +359,11 @@ function bind(){
     saveLocal();
     const c = currentChar();
     const payload = btoa(unescape(encodeURIComponent(JSON.stringify(c))));
-    window.open(`fullsheet.html?v=120#${payload}`, "_blank");
+    window.open(`fullsheet.html?v=130#${payload}`, "_blank");
   };
   $("file-input").onchange = e => { const file=e.target.files?.[0]; if(!file) return; const r=new FileReader(); r.onload=ev=>{ try{ importCharacter(JSON.parse(ev.target.result), file.name); }catch(err){ alert("Не удалось прочитать JSON: "+err.message); } }; r.readAsText(file); e.target.value=""; };
   $("new-char-btn").onclick = async () => { const c=defaultChar("Оперативник"); state.chars[c.id]=c; state.activeId=c.id; saveLocal(); renderAll(); await publishActor(); };
   $("new-turn-btn").onclick = newTurn;
-  $("compact-btn").onclick = toggleCompact;
   $("char-select").onchange = () => { state.activeId=$("char-select").value; saveLocal(); renderAll(); publishActor(); };
   $("char-name").onchange = async () => { const c=currentChar(); c.name=$("char-name").value.trim()||"Оперативник"; saveLocal(); renderAll(); await publishActor(); };
   $("skill-select").onchange = renderDiceEditor;
@@ -371,7 +387,8 @@ function bind(){
   document.addEventListener("keydown", e => {
     const tag = (document.activeElement?.tagName || "").toLowerCase();
     const typing = ["input","textarea","select"].includes(tag);
-    if(e.key.toLowerCase() === "j" && !typing){ e.preventDefault(); toggleLog(); }
+    const k = e.key.toLowerCase();
+    if(k === "j" && (e.ctrlKey || !typing)){ e.preventDefault(); toggleLog(); }
     if(e.key === "Enter" && e.ctrlKey){ e.preventDefault(); rollSkill(); }
     if(e.key === "Enter" && e.shiftKey){ e.preventDefault(); rollDamage(); }
     if(e.key === "Escape" && ui.logOpen){ e.preventDefault(); toggleLog(); }

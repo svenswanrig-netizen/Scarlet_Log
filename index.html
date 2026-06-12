@@ -3,17 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Scarlet Frontier Log v0.12</title>
+  <title>Scarlet Frontier Log v0.13</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=120" />
+  <link rel="stylesheet" href="style.css?v=130" />
 </head>
 <body>
   <main class="app">
     <header class="topbar">
       <div class="brand">
         <div class="kicker">Scarlet Frontier</div>
-        <h1>Нижний HUD <span>v0.12</span></h1>
+        <h1>Нижний HUD <span>v0.13</span></h1>
       </div>
       <div class="top-actions">
         <button class="ghost" id="import-btn" title="Загрузить JSON из полного листа">JSON</button>
@@ -21,9 +21,8 @@
         <input id="file-input" type="file" accept=".json,application/json" hidden />
         <button class="ghost" id="new-char-btn">+ Перс.</button>
         <button class="ghost" id="new-turn-btn" title="Выставить ОД 3 и записать новый ход">Новый ход</button>
-        <button class="ghost" id="compact-btn" aria-pressed="false" title="Свернуть/развернуть нижний HUD">Компакт</button>
-        <button class="ghost" id="toggle-log-btn" aria-expanded="false">Журнал ▾</button>
-        <div class="kbd-hints">Ctrl+Enter бросок · Shift+Enter урон · J журнал</div>
+        <button class="ghost" id="toggle-log-btn" aria-expanded="false">Журнал ▸</button>
+        <div class="kbd-hints">Ctrl+Enter бросок · Shift+Enter урон · Ctrl+J журнал</div>
         <div class="status" id="net-status">подключение…</div>
       </div>
     </header>
@@ -39,19 +38,15 @@
             <span>Имя</span>
             <input id="char-name" placeholder="Полли" />
           </label>
-          <div class="res-track">
-            <span>ОТП</span>
-            <button class="round" data-res="otp" data-delta="-1">−</button>
-            <strong id="otp-val">0</strong><em id="otp-max">/3</em>
-            <button class="round" data-res="otp" data-delta="1">+</button>
+          <div class="res-track visual" data-track="otp">
+            <div class="res-head"><span>ОТП</span><strong id="otp-val">0</strong><em id="otp-max">/3</em></div>
+            <div class="pip-track" id="otp-pips" title="Клик по точке выставляет значение"></div>
           </div>
-          <div class="res-track">
-            <span>ОД</span>
-            <button class="round" data-res="od" data-delta="-1">−</button>
-            <strong id="od-val">3</strong>
-            <button class="round" data-res="od" data-delta="1">+</button>
+          <div class="res-track visual" data-track="od">
+            <div class="res-head"><span>ОД</span><strong id="od-val">3</strong></div>
+            <div class="pip-track od" id="od-pips" title="Клик по точке выставляет значение"></div>
           </div>
-          <div class="res-track">
+          <div class="res-track spbox">
             <span>SP</span>
             <button class="round" data-res="sp" data-delta="-1">−</button>
             <strong id="sp-val">0</strong>
@@ -85,29 +80,31 @@
         </div>
       </section>
 
-      <section class="panel latest" id="latest-card">
-        <div class="latest-label">Последний результат</div>
-        <div class="latest-title">Пока нет событий</div>
-        <div class="latest-body">Загрузи персонажа JSON или создай пустого. Броски появятся здесь у всех, у кого открыт Scarlet Log.</div>
-      </section>
+      <aside class="side-stack">
+        <section class="panel latest" id="latest-card">
+          <div class="latest-label">Последний результат</div>
+          <div class="latest-title">Пока нет событий</div>
+          <div class="latest-body">Загрузи персонажа JSON или создай пустого. Броски появятся здесь у всех, у кого открыт Scarlet Log.</div>
+        </section>
+        <section class="panel side-log collapsed" id="log-drawer">
+          <div class="drawer-head compact-head">
+            <div class="drawer-title"><b>Журнал</b><span>новые сверху</span></div>
+            <div class="drawer-actions">
+              <button class="ghost" id="export-log-btn">.txt</button>
+              <button class="ghost" id="clear-local-btn">Очистить</button>
+            </div>
+          </div>
+          <form class="scene-form" id="scene-form">
+            <input id="scene-input" placeholder="Факт сцены, описание, решение ведущего…" autocomplete="off">
+            <button class="primary small" type="submit">+</button>
+          </form>
+          <div class="log" id="log"></div>
+        </section>
+      </aside>
     </section>
 
-    <section class="log-drawer collapsed" id="log-drawer">
-      <div class="drawer-head">
-        <div class="drawer-title"><b>Журнал комнаты</b><span>новые сверху · сюда можно писать факты сцены и описания</span></div>
-        <div class="drawer-actions">
-          <button class="ghost" id="export-log-btn">Скачать .txt</button>
-          <button class="ghost" id="clear-local-btn">Очистить у себя</button>
-        </div>
-      </div>
-      <form class="scene-form" id="scene-form">
-        <input id="scene-input" placeholder="Факт сцены, описание местности, решение ведущего…" autocomplete="off">
-        <button class="primary small" type="submit">Записать</button>
-      </form>
-      <div class="log" id="log"></div>
-    </section>
   </main>
   <div id="toast-stack" class="toast-stack" aria-live="polite"></div>
-  <script type="module" src="main.js?v=120"></script>
+  <script type="module" src="main.js?v=130"></script>
 </body>
 </html>
