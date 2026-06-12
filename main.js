@@ -1,303 +1,284 @@
-const VERSION = "060";
-const CHANNEL = "scarlet-frontier-log-v6";
-const META_KEY = "com.scarletfrontier.log/v6";
-const TOKEN_META_KEY = "com.scarletfrontier.log/token";
+const VERSION = "070";
+const CHANNEL = "scarlet-frontier-log-v7";
+const META_KEY = "com.scarletfrontier.log/v7";
 const MAX_EVENTS = 50;
-const STORAGE_KEY = "scarlet-log-network-v6";
+const STORAGE_KEY = "scarlet-log-clean-v7";
+
+const SKILLS = [
+  { n:"Насилие", a:"ТЕЛО", attr:"attrBody" }, { n:"Атлетика", a:"ТЕЛО", attr:"attrBody" }, { n:"Стойкость", a:"ТЕЛО", attr:"attrBody" }, { n:"Выживание", a:"ТЕЛО", attr:"attrBody" },
+  { n:"Стрельба", a:"РЕАКЦИЯ", attr:"attrReact" }, { n:"Скрытность", a:"РЕАКЦИЯ", attr:"attrReact" }, { n:"Пилотирование", a:"РЕАКЦИЯ", attr:"attrReact" },
+  { n:"Следствие", a:"РАЗУМ", attr:"attrMind" }, { n:"Влияние", a:"РАЗУМ", attr:"attrMind" }, { n:"Медицина", a:"РАЗУМ", attr:"attrMind" }, { n:"Техника", a:"РАЗУМ", attr:"attrMind" }, { n:"Психика", a:"РАЗУМ", attr:"attrMind" }
+];
+const DICE = ["d4","d6","d8","d10","d12"];
 
 let OBR = null;
 let online = false;
 let seen = new Set();
 let events = [];
-let actors = {};
-let state = { actor: "", otp: 0, od: 3, sp: 0, otpMax: 3, extraOdGained: false };
+let roomActors = {};
+let state = { activeId:"", chars:{} };
+let adv = 0, dis = 0;
 
-const $ = (id) => document.getElementById(id);
-const qsa = (sel) => Array.from(document.querySelectorAll(sel));
-const clamp = (n, min, max) => Math.max(min, Math.min(max, Number(n) || 0));
-const dieSides = (die) => Number(String(die).replace("d", ""));
-const rollDie = (die) => Math.floor(Math.random() * dieSides(die)) + 1;
-const nowTime = () => new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
-const uid = () => `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c]));
-const safeActor = () => ($("actor-name").value || state.actor || "Оперативник").trim() || "Оперативник";
+const $ = id => document.getElementById(id);
+const clamp = (n,min,max) => Math.max(min, Math.min(max, Number(n)||0));
+const uid = () => `${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+const nowTime = () => new Date().toLocaleTimeString("ru-RU", {hour:"2-digit", minute:"2-digit"});
+const sides = d => Number(String(d||"d6").replace("d","")) || 6;
+const rollDie = d => Math.floor(Math.random()*sides(d))+1;
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c]));
 
-function loadLocal() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return;
+function defaultChar(name="Оперативник"){
+  const id = `char_${uid()}`;
+  return { id, name, attrBody:"d8", attrReact:"d8", attrMind:"d8", otp:0, otpMax:3, od:3, sp:0, skills:SKILLS.map(s=>({ n:s.n, dice:[] })), weapons:[] };
+}
+function currentChar(){
+  if (!state.activeId || !state.chars[state.activeId]) {
+    const c = defaultChar(); state.chars[c.id]=c; state.activeId=c.id;
+  }
+  return state.chars[state.activeId];
+}
+function saveLocal(){ localStorage.setItem(STORAGE_KEY, JSON.stringify({ state, events: events.slice(-MAX_EVENTS), roomActors })); }
+function loadLocal(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY); if(!raw) return;
     const parsed = JSON.parse(raw);
-    Object.assign(state, parsed.state || {});
+    if (parsed.state?.chars) state = parsed.state;
     events = Array.isArray(parsed.events) ? parsed.events.slice(-MAX_EVENTS) : [];
-    actors = parsed.actors || {};
-    seen = new Set(events.map(e => e.id));
-  } catch {}
-}
-function saveLocal() { localStorage.setItem(STORAGE_KEY, JSON.stringify({ state, events: events.slice(-MAX_EVENTS), actors })); }
-function syncInputs() { $("actor-name").value = state.actor || ""; $("otp-val").textContent = state.otp; $("od-val").textContent = state.od; $("sp-val").textContent = state.sp; }
-function collectActor() {
-  state.actor = safeActor();
-  actors[state.actor] = { otp: state.otp, od: state.od, sp: state.sp, updated: Date.now() };
-  saveLocal();
-  renderActors();
+    roomActors = parsed.roomActors || {};
+    seen = new Set(events.map(e=>e.id));
+  }catch(e){ console.warn(e); }
 }
 
-async function waitForObrReady() {
-  if (OBR?.isReady) return;
-  await new Promise((resolve) => {
-    const unsub = OBR.onReady(() => { try { unsub?.(); } catch {} resolve(); });
-  });
-}
-async function loadSdk() {
-  try {
+async function waitReady(){ if(OBR?.isReady) return; await new Promise(resolve=>{ const unsub = OBR.onReady(()=>{ try{unsub?.()}catch{} resolve(); }); }); }
+async function loadSdk(){
+  try{
     const mod = await import("https://cdn.jsdelivr.net/npm/@owlbear-rodeo/sdk@latest/+esm");
     OBR = mod.default;
     if (!OBR?.isAvailable) throw new Error("OBR unavailable");
-    await waitForObrReady();
-    online = true;
-    $("net-status").textContent = "Owlbear online";
-    $("net-status").className = "status online";
-    setupBroadcast();
-    setupRoomMetadataSync();
-    await loadRoomState();
-    setupTokenContextMenu();
-    if (!events.some(e => e.type === "system" && e.text?.includes("v0.6"))) addSystemLocal("Scarlet Log v0.6 подключён. Выбери токен на карте и нажми Scarlet в контекстном меню.");
-    collectActor();
-    await saveRoomState();
-  } catch (err) {
+    await waitReady(); online = true;
+    $("net-status").textContent = "online"; $("net-status").className = "status online";
+    setupBroadcast(); setupMetadataListener(); await loadRoomState();
+    await publishActor();
+    if (!events.some(e => e.type === "system" && e.text?.includes("v0.7"))) addSystemLocal("Scarlet Log v0.7: чистый горизонтальный пульт подключён.");
+  }catch(err){
     online = false;
-    $("net-status").textContent = "local mode";
-    $("net-status").className = "status local";
-    addSystemLocal("Локальный режим: синхронизация работает только внутри комнаты Owlbear.");
+    $("net-status").textContent = "local"; $("net-status").className = "status local";
+    addSystemLocal("Локальный режим: онлайн-синхронизация работает только внутри комнаты Owlbear.");
     console.warn(err);
   }
 }
-function setupBroadcast() {
-  try {
-    OBR.broadcast.onMessage(CHANNEL, (event) => {
-      const data = event?.data ?? event;
-      if (data?.id) receiveEvent(data);
-    });
-  } catch (err) { console.warn("broadcast setup failed", err); }
+function setupBroadcast(){
+  try{ OBR.broadcast.onMessage(CHANNEL, (msg)=>{ const ev = msg?.data ?? msg; if(ev?.id) receiveEvent(ev); }); }
+  catch(e){ console.warn("broadcast listener", e); }
 }
-function setupRoomMetadataSync() {
-  try {
-    OBR.room.onMetadataChange((metadata) => applyRoomState(metadata?.[META_KEY]));
-  } catch (err) { console.warn("metadata listener failed", err); }
+function setupMetadataListener(){
+  try{ OBR.room.onMetadataChange(meta => applyRoomState(meta?.[META_KEY])); }
+  catch(e){ console.warn("metadata listener", e); }
 }
-function applyRoomState(roomState) {
-  if (!roomState || typeof roomState !== "object") return;
-  if (roomState.actors) actors = { ...actors, ...roomState.actors };
-  if (Array.isArray(roomState.events)) for (const ev of roomState.events) addEventLocal(ev, false);
-  renderAll();
-  saveLocal();
+async function loadRoomState(){
+  try{ const meta = await OBR.room.getMetadata(); applyRoomState(meta?.[META_KEY]); }
+  catch(e){ console.warn("metadata load", e); }
 }
-async function loadRoomState() {
-  try { const meta = await OBR.room.getMetadata(); applyRoomState(meta?.[META_KEY]); }
-  catch (err) { console.warn("metadata load failed", err); }
+function applyRoomState(rs){
+  if(!rs || typeof rs !== "object") return;
+  if(rs.actors) roomActors = { ...roomActors, ...rs.actors };
+  if(Array.isArray(rs.events)) rs.events.forEach(ev => addEventLocal(ev, false));
+  renderAll(); saveLocal();
 }
-async function saveRoomState(extraEvent = null) {
-  if (!online || !OBR?.room) return;
-  try {
-    const current = await OBR.room.getMetadata();
-    const old = current?.[META_KEY] || {};
+async function saveRoomState(extraEvent=null){
+  if(!online || !OBR?.room) return;
+  try{
+    const meta = await OBR.room.getMetadata();
+    const old = meta?.[META_KEY] || {};
     const map = new Map();
-    for (const ev of (Array.isArray(old.events) ? old.events : [])) if (ev?.id) map.set(ev.id, ev);
-    for (const ev of events) if (ev?.id) map.set(ev.id, ev);
-    if (extraEvent?.id) map.set(extraEvent.id, extraEvent);
+    for(const ev of (Array.isArray(old.events)?old.events:[])) if(ev?.id) map.set(ev.id, ev);
+    for(const ev of events) if(ev?.id) map.set(ev.id, ev);
+    if(extraEvent?.id) map.set(extraEvent.id, extraEvent);
     const nextEvents = Array.from(map.values()).sort((a,b)=>(a.ts||0)-(b.ts||0)).slice(-MAX_EVENTS);
-    await OBR.room.setMetadata({ [META_KEY]: { events: nextEvents, actors: { ...(old.actors || {}), ...actors }, updated: Date.now() } });
-  } catch (err) { console.warn("metadata save failed", err); }
+    await OBR.room.setMetadata({ [META_KEY]: { events: nextEvents, actors: { ...(old.actors||{}), ...roomActors }, updated: Date.now() } });
+  }catch(e){ console.warn("metadata save", e); }
 }
-async function broadcastEvent(ev) {
+async function publishActor(){
+  const c = currentChar();
+  roomActors[c.name] = { otp:c.otp, od:c.od, sp:c.sp, updated:Date.now() };
+  saveLocal(); renderAll(); await saveRoomState();
+}
+async function broadcastEvent(ev){
   ev.ts ||= Date.now(); ev.time ||= nowTime();
   addEventLocal(ev, true);
-  if (online && OBR?.broadcast) {
-    try { await OBR.broadcast.sendMessage(CHANNEL, ev, { destination: "REMOTE" }); }
-    catch (err) { console.warn("broadcast failed", err); }
+  if(online && OBR?.broadcast){
+    try{ await OBR.broadcast.sendMessage(CHANNEL, ev, { destination:"REMOTE" }); }
+    catch(e){ console.warn("broadcast send", e); }
   }
   await saveRoomState(ev);
 }
-function receiveEvent(ev) { addEventLocal(ev, true); }
-function addEventLocal(ev, persist = true) {
-  if (!ev?.id || seen.has(ev.id)) return;
-  seen.add(ev.id);
-  events.push(ev);
-  events = events.slice(-MAX_EVENTS);
-  if (ev.actor && (ev.resourcesAfter || ev.actorState)) actors[ev.actor] = { ...actors[ev.actor], ...(ev.resourcesAfter || ev.actorState), updated: Date.now() };
-  renderAll();
-  if (persist) saveLocal();
+function receiveEvent(ev){ addEventLocal(ev, true); }
+function addEventLocal(ev, persist=true){
+  if(!ev?.id || seen.has(ev.id)) return;
+  seen.add(ev.id); events.push(ev); events = events.slice(-MAX_EVENTS);
+  if(ev.actor && ev.resourcesAfter) roomActors[ev.actor] = { ...roomActors[ev.actor], ...ev.resourcesAfter, updated:Date.now() };
+  renderAll(); if(persist) saveLocal();
 }
-function addSystemLocal(text) { addEventLocal({ id: uid(), ts: Date.now(), type: "system", actor: "System", time: nowTime(), text }, true); }
+function addSystemLocal(text){ addEventLocal({ id:uid(), type:"system", actor:"System", ts:Date.now(), time:nowTime(), text }, true); }
 
-function renderAll() { renderLatest(); renderLog(); renderActors(); }
-function latestVisibleEvent() { return [...events].reverse().find(e => e.type !== "system") || [...events].reverse()[0]; }
-function renderLatest() {
-  const box = $("latest-card"); if (!box) return;
-  const ev = latestVisibleEvent();
-  if (!ev) return;
-  const tone = ev.pill || (ev.type === "damage" ? "mag" : ev.type === "resource" ? "info" : "");
-  box.className = `latest-card ${tone || ""}`.trim();
-  let title = ev.actor ? `${esc(ev.actor)}` : "Событие";
-  let body = esc(ev.text || ev.summary || "");
-  if (ev.type === "roll") title = `${esc(ev.actor)} — ${esc(ev.title)} <span class="pill ${ev.pill || "good"}">${esc(ev.resultLabel)}</span>`;
-  else if (ev.type === "damage") title = `${esc(ev.actor)} — ${esc(ev.title)} <span class="pill mag">Урон</span>`;
-  else if (ev.type === "resource") title = `${esc(ev.actor)} — ресурсы <span class="pill info">изменение</span>`;
-  else if (ev.type === "chat") title = `${esc(ev.actor)} пишет`;
-  else box.classList.add("empty");
-  box.innerHTML = `<div class="latest-kicker">Последнее событие</div><div class="latest-title">${title}</div><div class="latest-body">${body}</div><div class="latest-meta"><span>${esc(ev.time || "")}</span><span>${esc(ev.type || "")}</span></div>`;
+function normWeapon(w){
+  if(!w) return { name:"Оружие", dmgCount:1, dmgDie:"d6", ammoLight:0, ammoAP:0, ammoExp:0 };
+  let dmgCount = Number(w.dmgCount); let dmgDie = w.dmgDie;
+  if(!dmgCount || !DICE.includes(dmgDie)){
+    const m = String(w.dmg || "1d6").match(/(\d*)d(4|6|8|10|12)/i);
+    dmgCount = m ? (Number(m[1] || 1) || 1) : 1;
+    dmgDie = m ? `d${m[2]}` : "d6";
+  }
+  return { name: String(w.name || "Оружие"), dmgCount: clamp(dmgCount,1,6), dmgDie: DICE.includes(dmgDie)?dmgDie:"d6", ammoLight:Number(w.ammoLight||0), ammoAP:Number(w.ammoAP||0), ammoExp:Number(w.ammoExp||0) };
 }
-function renderLog() {
-  const el = $("log"); if (!el) return;
-  if (!events.length) { el.innerHTML = `<div class="event system"><div class="event-body">Пока нет событий.</div></div>`; return; }
-  el.innerHTML = [...events].reverse().map(renderEvent).join("");
-  el.scrollTop = 0;
-}
-function renderEvent(ev) {
-  const cls = `event ${ev.type || "system"}`;
-  const actor = esc(ev.actor || "—");
-  const time = esc(ev.time || "");
-  let body = "";
-  if (ev.type === "chat") body = `<div class="event-body">${esc(ev.text)}</div>`;
-  else if (ev.type === "roll") body = `<div class="event-title">${esc(ev.title)} <span class="pill ${ev.pill || "good"}">${esc(ev.resultLabel)}</span></div><div class="event-body">${esc(ev.summary)}</div>`;
-  else if (ev.type === "damage") body = `<div class="event-title">${esc(ev.title)} <span class="pill mag">Урон</span></div><div class="event-body">${esc(ev.summary)}</div>`;
-  else if (ev.type === "resource") body = `<div class="event-title">Ресурсы</div><div class="event-body">${esc(ev.summary)}</div>`;
-  else body = `<div class="event-body">${esc(ev.text || ev.summary || "")}</div>`;
-  return `<div class="${cls}"><div class="event-top"><span class="event-actor">${actor}</span><span class="event-time">${time}</span></div>${body}</div>`;
-}
-function renderActors() {
-  const el = $("actors-list"); if (!el) return;
-  const list = Object.entries(actors).sort((a,b)=>(b[1].updated||0)-(a[1].updated||0));
-  if (!list.length) { el.innerHTML = `<div class="note">Пока нет персонажей.</div>`; return; }
-  el.innerHTML = list.map(([name,a]) => `<div class="actor-item"><div class="actor-name">${esc(name)}</div><div class="actor-res">ОТП ${a.otp ?? 0} · ОД ${a.od ?? 0} · SP ${a.sp ?? 0}</div></div>`).join("");
+function importCharacter(data){
+  const c = defaultChar(data?.name || "Оперативник");
+  c.attrBody = DICE.includes(data?.attrBody) ? data.attrBody : "d8";
+  c.attrReact = DICE.includes(data?.attrReact) ? data.attrReact : "d8";
+  c.attrMind = DICE.includes(data?.attrMind) ? data.attrMind : "d8";
+  c.otp = clamp(data?.otp,0, data?.otpMax || 3);
+  c.otpMax = clamp(data?.otpMax || 3,1,6);
+  c.od = Array.isArray(data?.od) ? data.od.filter(Boolean).length : clamp(data?.od ?? 3,0,9);
+  c.sp = clamp(data?.sp,0,99);
+  c.skills = SKILLS.map((sk, i) => {
+    const saved = Array.isArray(data?.skills) ? (data.skills.find(x=>x?.n===sk.n) || data.skills[i]) : null;
+    const dice = Array.isArray(saved?.dice) ? saved.dice.filter(d=>DICE.includes(d)).slice(0,2) : [];
+    return { n:sk.n, dice };
+  });
+  c.weapons = Array.isArray(data?.weapons) ? data.weapons.map(normWeapon) : [];
+  state.chars[c.id]=c; state.activeId=c.id;
+  saveLocal(); renderAll(); publishActor();
+  addSystemLocal(`Загружен персонаж: ${c.name}. Навыки и оружие подтянуты из JSON.`);
 }
 
-function applyOtpDelta(delta) {
-  const beforeOtp = state.otp, beforeOd = state.od;
-  if (delta > 0) {
-    const total = state.otp + delta;
-    if (total <= state.otpMax) state.otp = total;
-    else {
-      const extra = total - state.otpMax;
-      state.otp = state.otpMax;
-      if (extra >= 2 && !state.extraOdGained) { state.od += 1; state.extraOdGained = true; }
-    }
-  } else if (delta < 0) state.otp = Math.max(0, state.otp + delta);
-  collectActor(); syncInputs();
-  return { beforeOtp, afterOtp: state.otp, beforeOd, afterOd: state.od };
+function syncControls(){
+  const c = currentChar();
+  $("char-name").value = c.name || ""; $("otp-val").textContent = c.otp; $("otp-max").textContent = `/${c.otpMax||3}`; $("od-val").textContent = c.od; $("sp-val").textContent = c.sp;
+  const sel = $("char-select"); const old = sel.value;
+  sel.innerHTML = Object.values(state.chars).map(ch => `<option value="${esc(ch.id)}"${ch.id===state.activeId?" selected":""}>${esc(ch.name||"Оперативник")}</option>`).join("");
+  if(old && state.chars[old]) sel.value = state.activeId;
+  renderSkillOptions(); renderWeaponOptions();
 }
-function setResource(key, value) {
-  if (key === "otp") state.otp = clamp(value, 0, state.otpMax);
-  if (key === "od") state.od = clamp(value, 0, 9);
-  if (key === "sp") state.sp = clamp(value, 0, 99);
-  collectActor(); syncInputs();
+function skillSummary(skill){ return skill.dice?.length ? `${skill.n} ${skill.dice.join("+")}` : `${skill.n} Зеро`; }
+function renderSkillOptions(){
+  const c = currentChar(); const sel = $("skill-select"); const old = sel.value;
+  sel.innerHTML = c.skills.map((s,i)=>`<option value="${i}">${esc(skillSummary(s))}</option>`).join("");
+  if(old) sel.value = old;
 }
-function buildSkillResult({ actor, skillName, tn, skillCount, skillDie, attrDie, adv, dis, insurance, forceZero }) {
-  let resultLabel = "", pill = "good", summary = "", otpDelta = 0;
-  if (forceZero || skillCount === 0) {
-    const r1 = rollDie(attrDie), r2 = rollDie(attrDie), best = Math.min(r1, r2);
-    if (r1 === 1 || r2 === 1) { resultLabel = "Крит. промах"; pill = "bad"; otpDelta = -2; }
-    else if (best >= tn) { resultLabel = "Успех"; pill = "good"; otpDelta = 0; }
-    else { resultLabel = "Провал"; pill = "bad"; otpDelta = -1; }
-    const res = applyOtpDelta(otpDelta);
-    summary = `Зеро: ${attrDie} → ${r1}, ${r2}; берём худший ${best} | TN ${tn}\n${resultLabel}: ОТП ${res.beforeOtp} → ${res.afterOtp}`;
-    return { title: skillName, resultLabel, pill, summary, res };
+function weaponSummary(w){ return `${w.name || "Оружие"} ${w.dmgCount}${w.dmgDie}`; }
+function renderWeaponOptions(){
+  const c = currentChar(); const sel = $("weapon-select"); const old = sel.value;
+  if(!c.weapons.length) c.weapons = [normWeapon({name:"Оружие", dmgCount:1, dmgDie:"d6"})];
+  sel.innerHTML = c.weapons.map((w,i)=>`<option value="${i}">${esc(weaponSummary(normWeapon(w)))}</option>`).join("");
+  if(old) sel.value = old;
+}
+function renderLatest(){
+  const box = $("latest-card"); const ev = [...events].reverse().find(e=>e.type!=="system") || [...events].reverse()[0];
+  if(!ev){ box.className="panel latest"; return; }
+  box.className = `panel latest ${ev.pill || ev.type || ""}`;
+  let title = ev.actor || "Событие"; let body = ev.text || ev.summary || "";
+  if(ev.type==="roll") title = `${ev.actor} — ${ev.title} <span class="pill ${ev.pill||"good"}">${ev.resultLabel}</span>`;
+  if(ev.type==="damage") title = `${ev.actor} — ${ev.title} <span class="pill damage">Урон</span>`;
+  if(ev.type==="chat") title = `${ev.actor} пишет`;
+  box.innerHTML = `<div class="latest-label">Последний результат</div><div class="latest-title">${title}</div><div class="latest-body">${esc(body)}</div><div class="latest-meta">${esc(ev.time||"")} · ${esc(ev.type||"")}</div>`;
+}
+function renderLog(){
+  const el = $("log"); if(!el) return;
+  if(!events.length){ el.innerHTML = `<div class="event"><div class="event-body">Пока нет событий.</div></div>`; return; }
+  el.innerHTML = [...events].reverse().map(ev => {
+    const cls = `event ${ev.type||"system"} ${ev.pill||""}`;
+    let body = ev.text || ev.summary || ""; let title = ev.type==="roll" ? `${ev.title} · ${ev.resultLabel}` : ev.type==="damage" ? `${ev.title} · Урон` : ev.type==="chat" ? "Сообщение" : "Система";
+    return `<div class="${cls}"><div class="event-top"><span class="event-actor">${esc(ev.actor||"—")}</span><span class="event-time">${esc(ev.time||"")}</span></div><div class="event-title">${esc(title)}</div><div class="event-body">${esc(body)}</div></div>`;
+  }).join("");
+}
+function renderAll(){ syncControls(); renderLatest(); renderLog(); }
+
+function applyOtpDelta(c, delta){
+  const beforeOtp = c.otp, beforeOd = c.od;
+  if(delta > 0){
+    const total = c.otp + delta;
+    if(total <= c.otpMax) c.otp = total;
+    else { const extra = total - c.otpMax; c.otp = c.otpMax; if(extra >= 2) c.od += 1; }
+  } else if(delta < 0) c.otp = Math.max(0, c.otp + delta);
+  return { beforeOtp, afterOtp:c.otp, beforeOd, afterOd:c.od };
+}
+function buildSkillResult(c, params){
+  const sk = c.skills[params.skillIndex] || c.skills[0]; const skDef = SKILLS.find(x=>x.n===sk.n) || SKILLS[0];
+  const attrDie = c[skDef.attr] || "d8"; const tn = params.tn; const forceZero = params.forceZero || !sk.dice?.length;
+  let resultLabel="", pill="good", otpDelta=0, summary="";
+  if(forceZero){
+    const r1 = rollDie(attrDie), r2 = rollDie(attrDie), best = Math.min(r1,r2);
+    if(r1===1 || r2===1){ resultLabel="Крит. промах"; pill="bad"; otpDelta=-2; }
+    else if(best>=tn){ resultLabel="Успех"; pill="good"; otpDelta=0; }
+    else { resultLabel="Провал"; pill="bad"; otpDelta=-1; }
+    const res = applyOtpDelta(c, otpDelta);
+    summary = `Зеро: ${attrDie} → ${r1}, ${r2}; худший ${best} | TN ${tn}\n${resultLabel}. ОТП ${res.beforeOtp}→${res.afterOtp}`;
+    return { title:sk.n, resultLabel, pill, summary, resources:res };
   }
-  let pool = Array.from({ length: skillCount }, () => skillDie);
-  const net = adv - dis;
-  if (net > 0) for (let i=0;i<net;i++) pool.push(skillDie);
-  if (net < 0) for (let i=0;i<Math.abs(net);i++) if (pool.length) pool.pop();
-  if (!pool.length) return buildSkillResult({ actor, skillName, tn, skillCount: 0, skillDie, attrDie, adv, dis, insurance, forceZero: true });
-  const rolls = pool.map(d => ({ die:d, value:rollDie(d) }));
-  const values = rolls.map(r=>r.value); const best = Math.max(...values); const ones = values.filter(v=>v===1).length; const mags = rolls.filter(r=>r.value===dieSides(r.die)).length;
-  let success = best >= tn, insuranceText = "";
-  if (!success && insurance) {
-    if (state.otp > 0) {
-      const attr = rollDie(attrDie);
-      if (attr === 1) { resultLabel="Крит. промах"; pill="bad"; otpDelta=-3; insuranceText=`\nСтраховка: ${attrDie} → 1. Цена −1 ОТП + крит −2 ОТП.`; }
-      else if (attr >= tn) { success=true; resultLabel="Успех"; pill="good"; otpDelta=-1; insuranceText=`\nСтраховка: ${attrDie} → ${attr}. Провал подхвачен, цена −1 ОТП.`; }
-      else { resultLabel="Провал"; pill="bad"; otpDelta=-2; insuranceText=`\nСтраховка: ${attrDie} → ${attr}. Не помогла: цена −1 ОТП и провал −1 ОТП.`; }
-    } else insuranceText="\nСтраховка не сработала: нет ОТП.";
+  let pool = [...sk.dice]; const net = params.adv - params.dis;
+  if(net>0){ const maxDie = pool.reduce((a,b)=>sides(a)>=sides(b)?a:b,pool[0]); for(let i=0;i<net;i++) pool.push(maxDie); }
+  if(net<0){ for(let i=0;i<Math.abs(net);i++){ if(pool.length){ let mx=0; pool.forEach((d,idx)=>{ if(sides(d)>sides(pool[mx])) mx=idx; }); pool.splice(mx,1); } } }
+  if(!pool.length) return buildSkillResult(c, { ...params, forceZero:true });
+  const rolls = pool.map(d=>({die:d, value:rollDie(d)})); const values = rolls.map(r=>r.value); const best = Math.max(...values); const ones = values.filter(v=>v===1).length; const mags = rolls.filter(r=>r.value===sides(r.die)).length;
+  let success = best>=tn, insText="";
+  if(!success && params.insurance){
+    if(c.otp>0){ const ar = rollDie(attrDie); if(ar===1){ resultLabel="Крит. промах"; pill="bad"; otpDelta=-3; insText=`\nСтраховка ${attrDie} → 1: цена −1 и крит −2.`; } else if(ar>=tn){ success=true; resultLabel="Успех"; pill="good"; otpDelta=-1; insText=`\nСтраховка ${attrDie} → ${ar}: провал подхвачен, цена −1 ОТП.`; } else { resultLabel="Провал"; pill="bad"; otpDelta=-2; insText=`\nСтраховка ${attrDie} → ${ar}: не помогла, −2 ОТП всего.`; } }
+    else insText="\nСтраховка не сработала: нет ОТП.";
   }
-  if (!resultLabel) {
-    if (ones >= 2) { resultLabel="Крит. промах"; pill="bad"; otpDelta=-2; }
-    else if (!success) { resultLabel="Провал"; pill="bad"; otpDelta=-1; }
-    else if (mags >= 2) { resultLabel="Дубль-магнум"; pill="mag"; otpDelta=2; }
-    else if (mags === 1) { resultLabel="Магнум"; pill="mag"; otpDelta=1; }
-    else if (ones >= 1) { resultLabel="Осечка"; pill="bad"; otpDelta=-1; }
-    else if (best >= tn + 3) { resultLabel="Превосходство"; pill="good"; otpDelta=1; }
+  if(!resultLabel){
+    if(ones>=2){ resultLabel="Крит. промах"; pill="bad"; otpDelta=-2; }
+    else if(!success){ resultLabel="Провал"; pill="bad"; otpDelta=-1; }
+    else if(mags>=2){ resultLabel="Дубль-магнум"; pill="mag"; otpDelta=2; }
+    else if(mags===1){ resultLabel="Магнум"; pill="mag"; otpDelta=1; }
+    else if(ones>=1){ resultLabel="Осечка"; pill="bad"; otpDelta=-1; }
+    else if(best>=tn+3){ resultLabel="Превосходство"; pill="good"; otpDelta=1; }
     else { resultLabel="Успех"; pill="good"; otpDelta=0; }
   }
-  const res = applyOtpDelta(otpDelta);
-  const modText = net === 0 ? "" : ` | мод. пула: ${net > 0 ? "+" : ""}${net}`;
-  summary = `${pool.join("+")} → ${values.join(", ")} | лучший ${best} | TN ${tn}${modText}${insuranceText}\nОТП ${res.beforeOtp} → ${res.afterOtp}`;
-  if (res.afterOd !== res.beforeOd) summary += ` | ОД ${res.beforeOd} → ${res.afterOd}`;
-  return { title: skillName, resultLabel, pill, summary, res };
+  const res = applyOtpDelta(c, otpDelta);
+  summary = `${pool.join("+")} → ${values.join(", ")} | лучший ${best} | TN ${tn}\n${resultLabel}. ОТП ${res.beforeOtp}→${res.afterOtp}${res.afterOd!==res.beforeOd?`, ОД ${res.beforeOd}→${res.afterOd}`:""}${insText}`;
+  return { title:sk.n, resultLabel, pill, summary, resources:res };
 }
-async function skillRoll() {
-  collectActor();
-  const actor = safeActor();
-  const result = buildSkillResult({ actor, skillName: $("skill-name").value.trim() || "Проверка", tn: clamp($("tn").value,3,7), skillCount: clamp($("skill-count").value,0,2), skillDie: $("skill-die").value, attrDie: $("attr-die").value, adv: clamp($("adv").value,0,6), dis: clamp($("dis").value,0,6), insurance: $("insurance").checked, forceZero: $("zero").checked });
-  await broadcastEvent({ id: uid(), ts: Date.now(), type:"roll", actor, time: nowTime(), title: result.title, resultLabel: result.resultLabel, pill: result.pill, summary: result.summary, resourcesAfter:{otp:state.otp, od:state.od, sp:state.sp}, meta: result.res });
+async function rollSkill(){
+  const c = currentChar(); const result = buildSkillResult(c, { skillIndex:Number($("skill-select").value)||0, tn:Number($("tn").value)||4, adv, dis, insurance:$("insurance").checked, forceZero:$("zero").checked });
+  saveLocal(); await publishActor(); renderAll();
+  await broadcastEvent({ id:uid(), type:"roll", actor:c.name, title:result.title, resultLabel:result.resultLabel, pill:result.pill, summary:result.summary, resourcesAfter:{otp:c.otp, od:c.od, sp:c.sp}, ts:Date.now(), time:nowTime() });
 }
-async function damageRoll() {
-  collectActor();
-  const actor = safeActor();
-  const weapon = $("weapon-name").value.trim() || "Оружие";
-  const count = clamp($("damage-count").value,1,6), die = $("damage-die").value, ammo = $("ammo-type").value, spRaw = clamp($("target-sp").value,0,99);
-  const sides = dieSides(die), rolls = [], explosions = [];
-  for (let i=0;i<count;i++) { const v = rollDie(die); rolls.push(v); if (ammo === "exp" && v === sides) explosions.push(rollDie(die)); }
-  const base = rolls.reduce((a,b)=>a+b,0) + explosions.reduce((a,b)=>a+b,0);
-  const spEff = ammo === "ap" ? Math.max(0, spRaw - 2) : spRaw;
-  const total = Math.max(0, base - spEff);
-  const ammoLabel = ammo === "ap" ? "бронебойный" : ammo === "exp" ? "экспансивный" : "лёгкий";
-  let summary = `${count}${die}, ${ammoLabel}: ${rolls.join(", ")}`;
-  if (explosions.length) summary += ` | взрыв: ${explosions.join(", ")}`;
-  summary += `\nСумма ${base} − SP ${spEff}`;
-  if (ammo === "ap") summary += ` (исходный SP ${spRaw}, бронебойный −2)`;
-  summary += ` = итоговый урон ${total}`;
-  await broadcastEvent({ id: uid(), ts: Date.now(), type:"damage", actor, time: nowTime(), title: weapon, summary, resourcesAfter:{otp:state.otp, od:state.od, sp:state.sp} });
+function buildDamage(c){
+  const w = normWeapon(c.weapons[Number($("weapon-select").value)||0]); const ammo = $("ammo-type").value; const targetSp = clamp($("target-sp").value,0,99);
+  let rolls=[], expl=[]; for(let i=0;i<w.dmgCount;i++){ const r=rollDie(w.dmgDie); rolls.push(r); if(ammo==="exp" && r===sides(w.dmgDie)) expl.push(rollDie(w.dmgDie)); }
+  const raw = rolls.reduce((a,b)=>a+b,0) + expl.reduce((a,b)=>a+b,0); const effSp = ammo==="ap" ? Math.max(0,targetSp-2) : targetSp; const total = Math.max(0, raw-effSp);
+  const ammoName = ammo==="ap"?"бронебойный":ammo==="exp"?"экспансивный":"лёгкий";
+  const expText = expl.length ? ` + взрыв ${expl.join(", ")}` : "";
+  return { title:w.name, summary:`${w.dmgCount}${w.dmgDie} (${ammoName}) → ${rolls.join(", ")}${expText}\nСумма ${raw} − SP ${effSp}${ammo==="ap"?` (из ${targetSp})`:""} = итоговый урон ${total}`, total };
 }
-async function resourceChange(key, delta) {
-  const before = state[key] || 0; setResource(key, before + delta);
-  const label = key === "otp" ? "ОТП" : key === "od" ? "ОД" : "SP";
-  await broadcastEvent({ id: uid(), ts: Date.now(), type:"resource", actor: safeActor(), time: nowTime(), summary: `${label}: ${before} → ${state[key]}`, resourcesAfter:{otp:state.otp, od:state.od, sp:state.sp} });
+async function rollDamage(){
+  const c = currentChar(); const d = buildDamage(c);
+  await broadcastEvent({ id:uid(), type:"damage", actor:c.name, title:d.title, pill:"damage", summary:d.summary, resourcesAfter:{otp:c.otp, od:c.od, sp:c.sp}, ts:Date.now(), time:nowTime() });
 }
-async function sendChat(text) { collectActor(); await broadcastEvent({ id: uid(), ts: Date.now(), type:"chat", actor:safeActor(), time:nowTime(), text, actorState:{otp:state.otp, od:state.od, sp:state.sp} }); }
-
-async function setupTokenContextMenu() {
-  if (!OBR?.contextMenu || !OBR?.popover) return;
-  try {
-    await OBR.contextMenu.create({
-      id: "com.scarletfrontier.log/token-menu-v06",
-      icons: [{ icon: `https://svenswanrig-netizen.github.io/Scarlet_Log/icon.svg?v=${VERSION}`, label: "Scarlet" }],
-      async onClick(context, elementId) {
-        const item = context?.items?.[0]; if (!item) return;
-        const current = item.metadata?.[TOKEN_META_KEY] || { actor: item.name || safeActor(), otp: state.otp, od: state.od, sp: state.sp, otpMax: state.otpMax };
-        await OBR.scene.items.updateItems([item], (items) => { for (const it of items) it.metadata[TOKEN_META_KEY] = { ...current, actor: current.actor || it.name || "Оперативник", updated: Date.now() }; });
-        const url = `https://svenswanrig-netizen.github.io/Scarlet_Log/token.html?v=${VERSION}&item=${encodeURIComponent(item.id)}`;
-        await OBR.popover.open({ id:"com.scarletfrontier.log/token-popover-v06", url, height:590, width:360, anchorElementId: elementId, anchorOrigin:{horizontal:"CENTER", vertical:"TOP"}, transformOrigin:{horizontal:"CENTER", vertical:"BOTTOM"}, marginThreshold:12 });
-      }
-    });
-  } catch (err) { console.warn("context menu failed", err); addSystemLocal("Контекстное меню токена не подключилось. Открой расширение в комнате Owlbear."); }
+async function changeResource(key, delta){
+  const c = currentChar(); const before = { otp:c.otp, od:c.od, sp:c.sp };
+  if(key==="otp") c.otp = clamp(c.otp+delta,0,c.otpMax); if(key==="od") c.od=clamp(c.od+delta,0,9); if(key==="sp") c.sp=clamp(c.sp+delta,0,99);
+  saveLocal(); await publishActor(); renderAll();
+  await broadcastEvent({ id:uid(), type:"resource", actor:c.name, pill:"info", summary:`ОТП ${before.otp}→${c.otp} · ОД ${before.od}→${c.od} · SP ${before.sp}→${c.sp}`, resourcesAfter:{otp:c.otp, od:c.od, sp:c.sp}, ts:Date.now(), time:nowTime() });
+}
+function exportLog(){
+  const lines = [...events].map(e => `[${e.time||""}] ${e.actor||"—"}: ${e.type==="roll"?`${e.title} — ${e.resultLabel}. `:""}${e.summary||e.text||""}`).join("\n\n");
+  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([lines],{type:"text/plain;charset=utf-8"})); a.download=`scarlet_log_${new Date().toISOString().slice(0,10)}.txt`; a.click(); URL.revokeObjectURL(a.href);
+}
+function bind(){
+  $("import-btn").onclick = () => $("file-input").click();
+  $("file-input").onchange = e => { const file=e.target.files?.[0]; if(!file) return; const r=new FileReader(); r.onload=ev=>{ try{ importCharacter(JSON.parse(ev.target.result)); }catch(err){ alert("Не удалось прочитать JSON: "+err.message); } }; r.readAsText(file); e.target.value=""; };
+  $("new-char-btn").onclick = async () => { const c=defaultChar("Оперативник"); state.chars[c.id]=c; state.activeId=c.id; saveLocal(); renderAll(); await publishActor(); };
+  $("char-select").onchange = () => { state.activeId=$("char-select").value; saveLocal(); renderAll(); publishActor(); };
+  $("char-name").onchange = async () => { const c=currentChar(); c.name=$("char-name").value.trim()||"Оперативник"; saveLocal(); renderAll(); await publishActor(); };
+  document.querySelectorAll("[data-res]").forEach(b => b.onclick = () => changeResource(b.dataset.res, Number(b.dataset.delta)));
+  document.querySelectorAll("[data-step]").forEach(b => b.onclick = () => { const key=b.dataset.step, delta=Number(b.dataset.delta); if(key==="adv") adv=clamp(adv+delta,0,6); if(key==="dis") dis=clamp(dis+delta,0,6); $("adv-val").textContent=adv; $("dis-val").textContent=dis; });
+  $("roll-skill-btn").onclick = rollSkill; $("roll-damage-btn").onclick = rollDamage;
+  $("chat-form").onsubmit = async e => { e.preventDefault(); const txt=$("chat-input").value.trim(); if(!txt) return; $("chat-input").value=""; const c=currentChar(); await broadcastEvent({ id:uid(), type:"chat", actor:c.name, pill:"info", text:txt, resourcesAfter:{otp:c.otp, od:c.od, sp:c.sp}, ts:Date.now(), time:nowTime() }); };
+  $("toggle-log-btn").onclick = () => { const d=$("log-drawer"); d.hidden=!d.hidden; };
+  $("export-log-btn").onclick = exportLog;
+  $("clear-local-btn").onclick = () => { if(confirm("Очистить локальный журнал? У других игроков он не удалится.")){ events=[]; seen=new Set(); saveLocal(); renderAll(); } };
 }
 
-function exportLog() {
-  const lines = [...events].map(ev => `[${ev.time || ""}] ${ev.actor || "—"} — ${ev.title || ev.type || "событие"}\n${ev.text || ev.summary || ""}`).join("\n\n");
-  const blob = new Blob([lines], { type:"text/plain;charset=utf-8" });
-  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "scarlet_log.txt"; a.click(); URL.revokeObjectURL(a.href);
-}
-function switchTab(id) { qsa(".tab").forEach(b => b.classList.toggle("on", b.dataset.tab === id)); qsa(".panel").forEach(p => p.classList.toggle("on", p.id === `tab-${id}`)); }
-function bind() {
-  qsa(".tab").forEach(btn => btn.addEventListener("click", () => switchTab(btn.dataset.tab)));
-  qsa("[data-res]").forEach(btn => btn.addEventListener("click", () => resourceChange(btn.dataset.res, Number(btn.dataset.delta))));
-  $("actor-name").addEventListener("input", () => { collectActor(); saveRoomState(); });
-  $("sync-btn").addEventListener("click", async () => { collectActor(); await saveRoomState(); addSystemLocal("Состояние синхронизировано с комнатой."); });
-  $("roll-skill-btn").addEventListener("click", skillRoll);
-  $("roll-damage-btn").addEventListener("click", damageRoll);
-  $("chat-form").addEventListener("submit", (e) => { e.preventDefault(); const text = $("chat-input").value.trim(); if (!text) return; $("chat-input").value = ""; sendChat(text); });
-  $("clear-local-btn").addEventListener("click", () => { events = []; seen = new Set(); saveLocal(); renderAll(); });
-  $("export-log-btn").addEventListener("click", exportLog);
-}
-async function init() { loadLocal(); bind(); syncInputs(); renderAll(); await loadSdk(); }
-init();
+loadLocal(); if(!Object.keys(state.chars).length){ const c=defaultChar(); state.chars[c.id]=c; state.activeId=c.id; }
+bind(); renderAll(); loadSdk();
