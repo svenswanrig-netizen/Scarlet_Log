@@ -15,11 +15,18 @@
   <div id="sheet"></div>
 </div>
 <script>
-const STORAGE_KEY='scarlet-log-clean-v8';
+const STORAGE_KEY='scarlet-log-clean-v9';
 const SKILLS=['Насилие','Атлетика','Стойкость','Выживание','Стрельба','Скрытность','Пилотирование','Следствие','Влияние','Медицина','Техника','Психика'];
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
 function normWeapon(w){return {name:w?.name||'Оружие', dmgCount:w?.dmgCount||1, dmgDie:w?.dmgDie||'d6', ammoLight:w?.ammoLight||0, ammoAP:w?.ammoAP||0, ammoExp:w?.ammoExp||0};}
-function read(){try{const raw=localStorage.getItem(STORAGE_KEY);if(!raw)return null;const parsed=JSON.parse(raw);const st=parsed.state;return st?.chars?.[st.activeId]||Object.values(st?.chars||{})[0]||null;}catch(e){return null}}
+function read(){try{
+  if(location.hash && location.hash.length>1){
+    return JSON.parse(decodeURIComponent(escape(atob(location.hash.slice(1)))));
+  }
+  const raw=localStorage.getItem(STORAGE_KEY);
+  if(!raw)return null;
+  const parsed=JSON.parse(raw);const st=parsed.state;return st?.chars?.[st.activeId]||Object.values(st?.chars||{})[0]||null;
+}catch(e){console.warn(e);return null}}
 function render(){const c=read();const el=document.getElementById('sheet');if(!c){el.innerHTML='<div class="card empty">Персонаж не найден. Сначала загрузи JSON в Scarlet Log.</div>';return}
 const skills=(c.skills||[]).map(s=>`<div class="row"><span>${esc(s.n)}</span><span class="dice">${s.dice?.length?esc(s.dice.join(' + ')):'Зеро'}</span></div>`).join('');
 const weapons=(c.weapons&&c.weapons.length?c.weapons.map(normWeapon):[normWeapon({})]).map(w=>`<div class="row"><span>${esc(w.name)}</span><span class="dice">${w.dmgCount}${w.dmgDie}</span><span class="muted">Л:${w.ammoLight} Б:${w.ammoAP} Э:${w.ammoExp}</span></div>`).join('');

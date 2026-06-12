@@ -2,7 +2,7 @@ const VERSION = "080";
 const CHANNEL = "scarlet-frontier-log-v8";
 const META_KEY = "com.scarletfrontier.log/v8";
 const MAX_EVENTS = 50;
-const STORAGE_KEY = "scarlet-log-clean-v8";
+const STORAGE_KEY = "scarlet-log-clean-v9";
 
 const SKILLS = [
   { n:"Насилие", a:"ТЕЛО", attr:"attrBody" }, { n:"Атлетика", a:"ТЕЛО", attr:"attrBody" }, { n:"Стойкость", a:"ТЕЛО", attr:"attrBody" }, { n:"Выживание", a:"ТЕЛО", attr:"attrBody" },
@@ -288,7 +288,12 @@ function exportLog(){
 }
 function bind(){
   $("import-btn").onclick = () => $("file-input").click();
-  $("open-sheet-btn").onclick = () => { saveLocal(); window.open("fullsheet.html?v=080", "_blank"); };
+  $("open-sheet-btn").onclick = () => {
+    saveLocal();
+    const c = currentChar();
+    const payload = btoa(unescape(encodeURIComponent(JSON.stringify(c))));
+    window.open(`fullsheet.html?v=090#${payload}`, "_blank");
+  };
   $("file-input").onchange = e => { const file=e.target.files?.[0]; if(!file) return; const r=new FileReader(); r.onload=ev=>{ try{ importCharacter(JSON.parse(ev.target.result), file.name); }catch(err){ alert("Не удалось прочитать JSON: "+err.message); } }; r.readAsText(file); e.target.value=""; };
   $("new-char-btn").onclick = async () => { const c=defaultChar("Оперативник"); state.chars[c.id]=c; state.activeId=c.id; saveLocal(); renderAll(); await publishActor(); };
   $("char-select").onchange = () => { state.activeId=$("char-select").value; saveLocal(); renderAll(); publishActor(); };
@@ -297,7 +302,20 @@ function bind(){
   document.querySelectorAll("[data-step]").forEach(b => b.onclick = () => { const key=b.dataset.step, delta=Number(b.dataset.delta); if(key==="adv") adv=clamp(adv+delta,0,6); if(key==="dis") dis=clamp(dis+delta,0,6); $("adv-val").textContent=adv; $("dis-val").textContent=dis; });
   $("roll-skill-btn").onclick = rollSkill; $("roll-damage-btn").onclick = rollDamage;
   $("chat-form").onsubmit = async e => { e.preventDefault(); const txt=$("chat-input").value.trim(); if(!txt) return; $("chat-input").value=""; const c=currentChar(); await broadcastEvent({ id:uid(), type:"chat", actor:c.name, pill:"info", text:txt, resourcesAfter:{otp:c.otp, od:c.od, sp:c.sp}, ts:Date.now(), time:nowTime() }); };
-  $("toggle-log-btn").onclick = () => { const d=$("log-drawer"); d.hidden=!d.hidden; };
+  $("toggle-log-btn").onclick = () => {
+    const d=$("log-drawer");
+    const collapsed = d.classList.toggle("collapsed");
+    $("toggle-log-btn").setAttribute("aria-expanded", collapsed ? "false" : "true");
+    $("toggle-log-btn").textContent = collapsed ? "Журнал ▾" : "Журнал ▴";
+  };
+  $("scene-form").onsubmit = async e => {
+    e.preventDefault();
+    const txt=$("scene-input").value.trim();
+    if(!txt) return;
+    $("scene-input").value="";
+    const c=currentChar();
+    await broadcastEvent({ id:uid(), type:"chat", actor:c.name, pill:"info", text:txt, resourcesAfter:{otp:c.otp, od:c.od, sp:c.sp}, ts:Date.now(), time:nowTime() });
+  };
   $("export-log-btn").onclick = exportLog;
   $("clear-local-btn").onclick = () => { if(confirm("Очистить локальный журнал? У других игроков он не удалится.")){ events=[]; seen=new Set(); saveLocal(); renderAll(); } };
 }

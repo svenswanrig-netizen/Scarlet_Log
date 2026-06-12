@@ -3,24 +3,24 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Scarlet Frontier Log v0.8</title>
+  <title>Scarlet Frontier Log v0.10</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=080" />
+  <link rel="stylesheet" href="style.css?v=100" />
 </head>
 <body>
   <main class="app">
     <header class="topbar">
       <div class="brand">
         <div class="kicker">Scarlet Frontier</div>
-        <h1>Боевой пульт <span>v0.8</span></h1>
+        <h1>Нижний HUD <span>v0.10</span></h1>
       </div>
       <div class="top-actions">
-        <button class="ghost" id="import-btn">Загрузить JSON</button>
-        <button class="ghost" id="open-sheet-btn">Полный лист</button>
+        <button class="ghost" id="import-btn">JSON</button>
+        <button class="ghost" id="open-sheet-btn">Лист</button>
         <input id="file-input" type="file" accept=".json,application/json" hidden />
-        <button class="ghost" id="new-char-btn">+ Пустой</button>
-        <button class="ghost" id="toggle-log-btn">Журнал</button>
+        <button class="ghost" id="new-char-btn">+ Перс.</button>
+        <button class="ghost" id="toggle-log-btn" aria-expanded="false">Журнал</button>
         <div class="status" id="net-status">подключение…</div>
       </div>
     </header>
@@ -56,7 +56,7 @@
           </div>
         </div>
 
-        <div class="action-row">
+        <div class="action-row roll-row">
           <label class="field skill-field">
             <span>Проверка</span>
             <select id="skill-select"></select>
@@ -70,13 +70,13 @@
         </div>
 
         <div class="action-row damage-row">
-          <label class="field skill-field"><span>Урон</span><select id="weapon-select"></select></label>
-          <label class="field mini"><span>Боеприпас</span><select id="ammo-type"><option value="light">Лёгк.</option><option value="ap">Брон.</option><option value="exp">Эксп.</option></select></label>
-          <label class="field mini"><span>SP цели</span><input id="target-sp" type="number" min="0" max="99" value="0"></label>
+          <label class="field weapon-field"><span>Урон</span><select id="weapon-select"></select></label>
+          <label class="field ammo-field"><span>Боеприпас</span><select id="ammo-type"><option value="light">Лёгк.</option><option value="ap">Брон.</option><option value="exp">Эксп.</option></select></label>
+          <label class="field sp-field"><span>SP цели</span><input id="target-sp" type="number" min="0" max="99" value="0"></label>
           <button class="primary damage" id="roll-damage-btn">УРОН</button>
           <form class="chat-form" id="chat-form">
-            <input id="chat-input" placeholder="Короткое сообщение в ленту…" autocomplete="off">
-            <button class="ghost" type="submit">Отпр.</button>
+            <input id="chat-input" placeholder="Факт сцены / описание / реплика…" autocomplete="off">
+            <button class="ghost" type="submit">Запись</button>
           </form>
         </div>
       </section>
@@ -88,17 +88,22 @@
       </section>
     </section>
 
-    <section class="log-drawer" id="log-drawer" hidden>
+    <section class="log-drawer collapsed" id="log-drawer">
       <div class="drawer-head">
-        <b>Журнал комнаты</b>
-        <span>новые сверху</span>
-        <button class="ghost" id="export-log-btn">Скачать .txt</button>
-        <button class="ghost" id="clear-local-btn">Очистить у себя</button>
+        <div class="drawer-title"><b>Журнал комнаты</b><span>новые сверху · сюда можно писать факты сцены и описания</span></div>
+        <div class="drawer-actions">
+          <button class="ghost" id="export-log-btn">Скачать .txt</button>
+          <button class="ghost" id="clear-local-btn">Очистить у себя</button>
+        </div>
       </div>
+      <form class="scene-form" id="scene-form">
+        <input id="scene-input" placeholder="Факт сцены, описание местности, решение ведущего…" autocomplete="off">
+        <button class="primary small" type="submit">Записать</button>
+      </form>
       <div class="log" id="log"></div>
     </section>
   </main>
   <div id="toast-stack" class="toast-stack" aria-live="polite"></div>
-  <script type="module" src="main.js?v=080"></script>
+  <script type="module" src="main.js?v=100"></script>
 </body>
 </html>
