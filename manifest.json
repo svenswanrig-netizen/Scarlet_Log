@@ -1,15 +1,15 @@
 {
   "name": "Scarlet Frontier Log",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "manifest_version": 1,
-  "description": "Горизонтальный боевой пульт, общий лог, импорт персонажа, ОТП, ОД и урон для Scarlet Frontier.",
+  "description": "Горизонтальный боевой пульт, общий лог, импорт персонажа, ОТП, ОД, урон и всплывающие результаты для Scarlet Frontier.",
   "author": "Scarlet Frontier",
-  "icon": "https://svenswanrig-netizen.github.io/Scarlet_Log/icon.svg?v=070",
+  "icon": "https://svenswanrig-netizen.github.io/Scarlet_Log/icon.svg?v=080",
   "action": {
     "title": "Scarlet Log",
-    "icon": "https://svenswanrig-netizen.github.io/Scarlet_Log/icon.svg?v=070",
-    "popover": "https://svenswanrig-netizen.github.io/Scarlet_Log/index.html?v=070",
-    "height": 430,
-    "width": 980
+    "icon": "https://svenswanrig-netizen.github.io/Scarlet_Log/icon.svg?v=080",
+    "popover": "https://svenswanrig-netizen.github.io/Scarlet_Log/index.html?v=080",
+    "height": 395,
+    "width": 1080
   }
 }

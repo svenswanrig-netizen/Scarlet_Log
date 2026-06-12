@@ -1,8 +1,8 @@
-const VERSION = "070";
-const CHANNEL = "scarlet-frontier-log-v7";
-const META_KEY = "com.scarletfrontier.log/v7";
+const VERSION = "080";
+const CHANNEL = "scarlet-frontier-log-v8";
+const META_KEY = "com.scarletfrontier.log/v8";
 const MAX_EVENTS = 50;
-const STORAGE_KEY = "scarlet-log-clean-v7";
+const STORAGE_KEY = "scarlet-log-clean-v8";
 
 const SKILLS = [
   { n:"Насилие", a:"ТЕЛО", attr:"attrBody" }, { n:"Атлетика", a:"ТЕЛО", attr:"attrBody" }, { n:"Стойкость", a:"ТЕЛО", attr:"attrBody" }, { n:"Выживание", a:"ТЕЛО", attr:"attrBody" },
@@ -59,7 +59,7 @@ async function loadSdk(){
     $("net-status").textContent = "online"; $("net-status").className = "status online";
     setupBroadcast(); setupMetadataListener(); await loadRoomState();
     await publishActor();
-    if (!events.some(e => e.type === "system" && e.text?.includes("v0.7"))) addSystemLocal("Scarlet Log v0.7: чистый горизонтальный пульт подключён.");
+    if (!events.some(e => e.type === "system" && e.text?.includes("v0.8"))) addSystemLocal("Scarlet Log v0.8: горизонтальный пульт подключён. Результаты бросков всплывают у всех, у кого открыто расширение.");
   }catch(err){
     online = false;
     $("net-status").textContent = "local"; $("net-status").className = "status local";
@@ -105,19 +105,34 @@ async function publishActor(){
 }
 async function broadcastEvent(ev){
   ev.ts ||= Date.now(); ev.time ||= nowTime();
-  addEventLocal(ev, true);
+  addEventLocal(ev, true, true);
   if(online && OBR?.broadcast){
     try{ await OBR.broadcast.sendMessage(CHANNEL, ev, { destination:"REMOTE" }); }
     catch(e){ console.warn("broadcast send", e); }
   }
   await saveRoomState(ev);
 }
-function receiveEvent(ev){ addEventLocal(ev, true); }
-function addEventLocal(ev, persist=true){
+function receiveEvent(ev){ addEventLocal(ev, true, true); }
+function addEventLocal(ev, persist=true, flash=false){
   if(!ev?.id || seen.has(ev.id)) return;
   seen.add(ev.id); events.push(ev); events = events.slice(-MAX_EVENTS);
   if(ev.actor && ev.resourcesAfter) roomActors[ev.actor] = { ...roomActors[ev.actor], ...ev.resourcesAfter, updated:Date.now() };
-  renderAll(); if(persist) saveLocal();
+  renderAll();
+  if(flash && (ev.type === "roll" || ev.type === "damage" || ev.type === "resource")) showToast(ev);
+  if(persist) saveLocal();
+}
+function showToast(ev){
+  const stack = $("toast-stack"); if(!stack) return;
+  const t = document.createElement("div");
+  t.className = `toast ${ev.pill || ev.type || "info"}`;
+  let title = ev.actor || "Scarlet";
+  if(ev.type === "roll") title = `${ev.actor} — ${ev.title}: ${ev.resultLabel}`;
+  if(ev.type === "damage") title = `${ev.actor} — урон: ${ev.title}`;
+  if(ev.type === "resource") title = `${ev.actor} — ресурсы`;
+  t.innerHTML = `<div class="toast-title">${esc(title)}</div><div class="toast-body">${esc(ev.summary || ev.text || "")}</div>`;
+  stack.prepend(t);
+  setTimeout(()=>{ t.style.opacity="0"; t.style.transform="translateY(-6px)"; t.style.transition=".18s"; }, 5600);
+  setTimeout(()=>t.remove(), 5900);
 }
 function addSystemLocal(text){ addEventLocal({ id:uid(), type:"system", actor:"System", ts:Date.now(), time:nowTime(), text }, true); }
 
@@ -131,8 +146,10 @@ function normWeapon(w){
   }
   return { name: String(w.name || "Оружие"), dmgCount: clamp(dmgCount,1,6), dmgDie: DICE.includes(dmgDie)?dmgDie:"d6", ammoLight:Number(w.ammoLight||0), ammoAP:Number(w.ammoAP||0), ammoExp:Number(w.ammoExp||0) };
 }
-function importCharacter(data){
-  const c = defaultChar(data?.name || "Оперативник");
+function importCharacter(data, fileName=""){
+  const guessedName = String(data?.name || "").trim() || String(fileName || "").replace(/\.json$/i,"").replace(/^scarlet[_-]?/i,"").replace(/[_-]+/g," ").trim() || "Оперативник";
+  const c = defaultChar(guessedName);
+  c.sourceJsonName = fileName || "";
   c.attrBody = DICE.includes(data?.attrBody) ? data.attrBody : "d8";
   c.attrReact = DICE.includes(data?.attrReact) ? data.attrReact : "d8";
   c.attrMind = DICE.includes(data?.attrMind) ? data.attrMind : "d8";
@@ -146,9 +163,13 @@ function importCharacter(data){
     return { n:sk.n, dice };
   });
   c.weapons = Array.isArray(data?.weapons) ? data.weapons.map(normWeapon) : [];
+  const existing = Object.values(state.chars);
+  const onlyBlankDefault = existing.length === 1 && existing[0].name === "Оперативник" && !existing[0].skills.some(x=>x.dice?.length) && !existing[0].weapons?.length;
+  if(onlyBlankDefault){ delete state.chars[existing[0].id]; }
   state.chars[c.id]=c; state.activeId=c.id;
   saveLocal(); renderAll(); publishActor();
-  addSystemLocal(`Загружен персонаж: ${c.name}. Навыки и оружие подтянуты из JSON.`);
+  addSystemLocal(`Загружен персонаж: ${c.name}. Навыков: ${c.skills.filter(s=>s.dice?.length).length}; оружия: ${c.weapons.length || 1}.`);
+  showToast({type:"system", pill:"info", actor:"System", text:`Загружен персонаж: ${c.name}`, summary:`Навыков: ${c.skills.filter(s=>s.dice?.length).length}; оружия: ${c.weapons.length || 1}`});
 }
 
 function syncControls(){
@@ -267,7 +288,8 @@ function exportLog(){
 }
 function bind(){
   $("import-btn").onclick = () => $("file-input").click();
-  $("file-input").onchange = e => { const file=e.target.files?.[0]; if(!file) return; const r=new FileReader(); r.onload=ev=>{ try{ importCharacter(JSON.parse(ev.target.result)); }catch(err){ alert("Не удалось прочитать JSON: "+err.message); } }; r.readAsText(file); e.target.value=""; };
+  $("open-sheet-btn").onclick = () => { saveLocal(); window.open("fullsheet.html?v=080", "_blank"); };
+  $("file-input").onchange = e => { const file=e.target.files?.[0]; if(!file) return; const r=new FileReader(); r.onload=ev=>{ try{ importCharacter(JSON.parse(ev.target.result), file.name); }catch(err){ alert("Не удалось прочитать JSON: "+err.message); } }; r.readAsText(file); e.target.value=""; };
   $("new-char-btn").onclick = async () => { const c=defaultChar("Оперативник"); state.chars[c.id]=c; state.activeId=c.id; saveLocal(); renderAll(); await publishActor(); };
   $("char-select").onchange = () => { state.activeId=$("char-select").value; saveLocal(); renderAll(); publishActor(); };
   $("char-name").onchange = async () => { const c=currentChar(); c.name=$("char-name").value.trim()||"Оперативник"; saveLocal(); renderAll(); await publishActor(); };

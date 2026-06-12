@@ -3,20 +3,21 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Scarlet Frontier Log v0.7</title>
+  <title>Scarlet Frontier Log v0.8</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=070" />
+  <link rel="stylesheet" href="style.css?v=080" />
 </head>
 <body>
   <main class="app">
     <header class="topbar">
       <div class="brand">
         <div class="kicker">Scarlet Frontier</div>
-        <h1>Боевой пульт <span>v0.7</span></h1>
+        <h1>Боевой пульт <span>v0.8</span></h1>
       </div>
       <div class="top-actions">
-        <button class="ghost" id="import-btn">Загрузить персонажа</button>
+        <button class="ghost" id="import-btn">Загрузить JSON</button>
+        <button class="ghost" id="open-sheet-btn">Полный лист</button>
         <input id="file-input" type="file" accept=".json,application/json" hidden />
         <button class="ghost" id="new-char-btn">+ Пустой</button>
         <button class="ghost" id="toggle-log-btn">Журнал</button>
@@ -97,6 +98,7 @@
       <div class="log" id="log"></div>
     </section>
   </main>
-  <script type="module" src="main.js?v=070"></script>
+  <div id="toast-stack" class="toast-stack" aria-live="polite"></div>
+  <script type="module" src="main.js?v=080"></script>
 </body>
 </html>

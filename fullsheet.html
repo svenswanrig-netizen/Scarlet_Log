@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scarlet Frontier — полный лист</title>
+  <style>
+    :root{--bg:#0f1014;--panel:#171a20;--panel2:#1e222a;--border:#303642;--t:#eef1f7;--t2:#a9b0c1;--t3:#697286;--red:#c62828;--green:#43a047;--gold:#f9a825;--f:Inter,system-ui,sans-serif;--m:ui-monospace,Consolas,monospace}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--t);font-family:var(--f);font-size:15px;line-height:1.4}.wrap{max-width:1100px;margin:0 auto;padding:20px}.top{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:14px}.k{font-family:var(--m);font-size:11px;letter-spacing:.16em;color:#e57373;text-transform:uppercase}.btn{border:1px solid var(--border);background:#252a34;color:var(--t);border-radius:8px;padding:8px 12px;cursor:pointer}.grid{display:grid;grid-template-columns:280px 1fr;gap:12px}.card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px}.h{font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.12em;font-weight:800;margin-bottom:10px}.name{font-size:28px;font-weight:900;margin:0 0 5px}.muted{color:var(--t2)}.res{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.pill{background:var(--panel2);border:1px solid var(--border);border-radius:999px;padding:7px 10px;font-weight:800}.list{display:grid;gap:6px}.row{display:grid;grid-template-columns:1fr auto;gap:8px;padding:8px 10px;background:var(--panel2);border:1px solid var(--border);border-radius:8px}.dice{font-family:var(--m);font-weight:900;color:#ffd180}.weapons .row{grid-template-columns:1fr auto auto}.empty{color:var(--t3);font-style:italic}@media(max-width:760px){.grid{grid-template-columns:1fr}.top{align-items:flex-start;flex-direction:column}.wrap{padding:12px}}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><div><div class="k">Scarlet Frontier</div><h1 style="margin:2px 0 0">Полный лист персонажа</h1></div><button class="btn" onclick="window.close()">Закрыть</button></div>
+  <div id="sheet"></div>
+</div>
+<script>
+const STORAGE_KEY='scarlet-log-clean-v8';
+const SKILLS=['Насилие','Атлетика','Стойкость','Выживание','Стрельба','Скрытность','Пилотирование','Следствие','Влияние','Медицина','Техника','Психика'];
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+function normWeapon(w){return {name:w?.name||'Оружие', dmgCount:w?.dmgCount||1, dmgDie:w?.dmgDie||'d6', ammoLight:w?.ammoLight||0, ammoAP:w?.ammoAP||0, ammoExp:w?.ammoExp||0};}
+function read(){try{const raw=localStorage.getItem(STORAGE_KEY);if(!raw)return null;const parsed=JSON.parse(raw);const st=parsed.state;return st?.chars?.[st.activeId]||Object.values(st?.chars||{})[0]||null;}catch(e){return null}}
+function render(){const c=read();const el=document.getElementById('sheet');if(!c){el.innerHTML='<div class="card empty">Персонаж не найден. Сначала загрузи JSON в Scarlet Log.</div>';return}
+const skills=(c.skills||[]).map(s=>`<div class="row"><span>${esc(s.n)}</span><span class="dice">${s.dice?.length?esc(s.dice.join(' + ')):'Зеро'}</span></div>`).join('');
+const weapons=(c.weapons&&c.weapons.length?c.weapons.map(normWeapon):[normWeapon({})]).map(w=>`<div class="row"><span>${esc(w.name)}</span><span class="dice">${w.dmgCount}${w.dmgDie}</span><span class="muted">Л:${w.ammoLight} Б:${w.ammoAP} Э:${w.ammoExp}</span></div>`).join('');
+el.innerHTML=`<div class="grid"><aside class="card"><div class="h">Персонаж</div><h2 class="name">${esc(c.name||'Оперативник')}</h2><div class="muted">Источник: ${esc(c.sourceJsonName||'локальное состояние')}</div><div class="res"><span class="pill">ОТП ${c.otp||0}/${c.otpMax||3}</span><span class="pill">ОД ${c.od||0}</span><span class="pill">SP ${c.sp||0}</span></div><div class="res"><span class="pill">Тело ${esc(c.attrBody||'d8')}</span><span class="pill">Реакция ${esc(c.attrReact||'d8')}</span><span class="pill">Разум ${esc(c.attrMind||'d8')}</span></div></aside><section class="card"><div class="h">Навыки</div><div class="list">${skills}</div></section><section class="card weapons" style="grid-column:1/-1"><div class="h">Оружие</div><div class="list">${weapons}</div></section></div>`}
+render();
+</script>
+</body>
+</html>
