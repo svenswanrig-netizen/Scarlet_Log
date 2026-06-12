@@ -1,7 +1,7 @@
-const CHANNEL = "scarlet-frontier-log-v3";
-const META_KEY = "com.scarletfrontier.log/v3";
+const CHANNEL = "scarlet-frontier-log-v4";
+const META_KEY = "com.scarletfrontier.log/v4";
 const MAX_EVENTS = 40;
-const STORAGE_KEY = "scarlet-log-network-v3";
+const STORAGE_KEY = "scarlet-log-network-v4";
 
 let OBR = null;
 let online = false;
@@ -170,16 +170,22 @@ async function saveRoomState(extraEvent = null) {
 
 async function broadcastEvent(ev) {
   if (!ev.ts) ev.ts = Date.now();
-  let sent = false;
+  if (!ev.time) ev.time = nowTime();
+
+  // Важно: сначала пишем событие себе локально.
+  // В Owlbear broadcast иногда не возвращается отправителю, поэтому иначе кажется,
+  // что кнопка не работает, хотя событие ушло в сеть.
+  addEventLocal(ev, true);
+
   if (online && OBR?.broadcast) {
     try {
-      await OBR.broadcast.sendMessage(CHANNEL, ev, { destination: "ALL" });
-      sent = true;
+      // REMOTE = отправить другим участникам. У себя уже добавили выше.
+      await OBR.broadcast.sendMessage(CHANNEL, ev, { destination: "REMOTE" });
     } catch (err) {
       console.warn("broadcast send failed", err);
+      addSystemLocal("Broadcast не отправился. Событие сохранено локально и в metadata, если она доступна.");
     }
   }
-  if (!sent) addEventLocal(ev, true);
   await saveRoomState(ev);
 }
 function receiveEvent(ev) {
@@ -197,6 +203,10 @@ function addEventLocal(ev, persist = true) {
   renderLog();
   renderActors();
   if (persist) saveLocal();
+}
+function addSystemLocal(text) {
+  const ev = { id: uid(), ts: Date.now(), type: "system", actor: "System", time: nowTime(), text };
+  addEventLocal(ev, true);
 }
 function addSystem(text, network = true) {
   const ev = { id: uid(), ts: Date.now(), type: "system", actor: "System", time: nowTime(), text };
@@ -453,17 +463,19 @@ function exportLog() {
   URL.revokeObjectURL(a.href);
 }
 
+function switchToTab(tabName) {
+  qsa(".tab").forEach(b => b.classList.toggle("on", b.dataset.tab === tabName));
+  qsa(".panel").forEach(p => p.classList.toggle("on", p.id === `tab-${tabName}`));
+}
+
 function bindUi() {
-  qsa(".tab").forEach(btn => btn.addEventListener("click", () => {
-    qsa(".tab").forEach(b => b.classList.remove("on"));
-    qsa(".panel").forEach(p => p.classList.remove("on"));
-    btn.classList.add("on");
-    $(`tab-${btn.dataset.tab}`).classList.add("on");
-  }));
+  qsa(".tab").forEach(btn => btn.addEventListener("click", () => switchToTab(btn.dataset.tab)));
   $("actor-name").addEventListener("input", () => { state.actor = $("actor-name").value.trim(); saveLocal(); });
   $("announce-btn").addEventListener("click", async () => {
-    collectActor(); syncInputs();
-    await broadcastEvent({ id: uid(), ts: Date.now(), type: "system", actor: safeActor(), time: nowTime(), text: "подключается к ленте.", actorState: { otp: state.otp, od: state.od, sp: state.sp } });
+    collectActor();
+    syncInputs();
+    switchToTab("chat");
+    await broadcastEvent({ id: uid(), ts: Date.now(), type: "system", actor: safeActor(), time: nowTime(), text: online ? "подключается к ленте." : "проверяет ленту локально. В Owlbear будет онлайн.", actorState: { otp: state.otp, od: state.od, sp: state.sp } });
   });
   qsa(".round").forEach(btn => btn.addEventListener("click", () => {
     collectActor();

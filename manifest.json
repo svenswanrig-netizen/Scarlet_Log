@@ -1,14 +1,14 @@
 {
   "name": "Scarlet Frontier Log",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "manifest_version": 1,
   "description": "Общий чат, лог бросков, ОТП, ОД и урона для Scarlet Frontier.",
   "author": "Scarlet Frontier",
-  "icon": "https://svenswanrig-netizen.github.io/Scarlet_Log/icon.svg",
+  "icon": "https://svenswanrig-netizen.github.io/Scarlet_Log/icon.svg?v=040",
   "action": {
     "title": "Scarlet Log",
-    "icon": "https://svenswanrig-netizen.github.io/Scarlet_Log/icon.svg",
-    "popover": "https://svenswanrig-netizen.github.io/Scarlet_Log/index.html?v=030",
+    "icon": "https://svenswanrig-netizen.github.io/Scarlet_Log/icon.svg?v=040",
+    "popover": "https://svenswanrig-netizen.github.io/Scarlet_Log/index.html?v=040",
     "height": 760,
     "width": 560
   }
