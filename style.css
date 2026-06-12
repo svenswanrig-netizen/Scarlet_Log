@@ -142,54 +142,205 @@ body{min-width:1740px}
 @media(min-width:1700px){.hud-grid{grid-template-columns:248px minmax(1030px,1fr) 340px}}
 
 
-/* v0.15.15 player-friendly polish */
-body{min-width:1780px}
-.hud-shell{position:relative; z-index:10}
-.topbar{grid-template-columns:180px minmax(640px,1fr) auto; gap:8px; padding:4px 10px}
-.top-actions button{height:24px; padding:0 8px; font-size:10px}
-.hud-grid{grid-template-columns:232px minmax(900px,1fr) 378px; gap:6px}
-.left,.center,.right{height:128px; padding:6px 8px; overflow:hidden}
-.charline{grid-template-columns:1fr 1.08fr; gap:4px}
-.resources{grid-template-columns:1fr 1fr 60px; gap:4px; margin-top:4px}
-.sp-chip{display:grid; grid-template-columns:16px 20px 16px; grid-template-rows:9px 18px; gap:2px; align-items:center; justify-items:center; overflow:hidden}
-.sp-chip span{grid-column:1/4; grid-row:1; justify-self:start}
-.sp-chip button:first-of-type{grid-column:1; grid-row:2}
-.sp-chip b{grid-column:2; grid-row:2; font-size:13px}
-.sp-chip button:last-of-type{grid-column:3; grid-row:2}
-.sp-chip button{width:16px; height:16px; font-size:11px}
-.center{gap:4px}
-.rollbar,.damagebar{gap:4px; overflow:hidden}
-.skill{flex:1 1 160px; min-width:140px}
-.weapon{flex:1 1 160px; min-width:135px}
-.dice{flex:0 0 56px}.tn{flex:0 0 44px}.ammo{flex:0 0 92px}.tsp{flex:0 0 48px}
-.mini-step{min-width:52px; height:36px; grid-template-columns:15px 18px 15px; grid-template-rows:9px 22px}
-.mini-step button{height:22px}
+/* v0.15.16 stable HUD recomposition */
+body{min-width:1800px}
+.hud-shell{
+  padding:4px 6px;
+  grid-template-rows:38px auto;
+  gap:5px;
+}
+.topbar{
+  grid-template-columns:178px minmax(540px,1fr) auto;
+  gap:8px;
+  padding:4px 10px;
+}
+.damage-track{
+  display:grid;
+  grid-template-columns:minmax(250px,390px) minmax(240px,1fr);
+  gap:12px;
+  align-items:center;
+}
+.damage-legend{
+  justify-items:center;
+  font-size:10px;
+}
+.top-actions{
+  display:flex;
+  align-items:center;
+  gap:4px;
+}
+.top-actions button{
+  height:24px;
+  padding:0 8px;
+  font-size:10px;
+}
+.net{
+  padding:4px 8px;
+  font-size:9px;
+}
+.hud-grid{
+  grid-template-columns:238px minmax(720px,780px) minmax(760px,1fr);
+  gap:6px;
+}
+.left,.center,.right{
+  height:172px;
+  padding:7px 8px;
+  overflow:hidden;
+}
+.charline{
+  grid-template-columns:1fr 1fr;
+  gap:4px;
+}
+.resources{
+  margin-top:6px;
+  grid-template-columns:1fr 1fr 62px;
+  gap:4px;
+}
+.track,.sp-chip{
+  padding:5px;
+}
+.sp-chip{
+  display:grid;
+  grid-template-columns:16px 20px 16px;
+  grid-template-rows:9px 18px;
+  gap:2px;
+  align-items:center;
+  justify-items:center;
+  overflow:hidden;
+}
+.sp-chip span{grid-column:1/4;grid-row:1;justify-self:start}
+.sp-chip button:first-of-type{grid-column:1;grid-row:2}
+.sp-chip b{grid-column:2;grid-row:2;font-size:13px}
+.sp-chip button:last-of-type{grid-column:3;grid-row:2}
+.sp-chip button{width:16px;height:16px;font-size:11px}
+
+.center{
+  grid-template-rows:1fr 1fr;
+  gap:7px;
+}
+.rollbar,.damagebar{
+  gap:5px;
+  overflow:hidden;
+}
+.skill{flex:0 1 230px;min-width:170px;max-width:260px}
+.weapon{flex:0 1 250px;min-width:175px;max-width:280px}
+.dice{flex:0 0 58px}
+.tn{flex:0 0 48px}
+.ammo{flex:0 0 102px}
+.tsp{flex:0 0 58px}
+.mini-step{
+  min-width:54px;
+  height:38px;
+  grid-template-columns:16px 18px 16px;
+  grid-template-rows:9px 23px;
+}
+.mini-step button{height:23px}
 .mini-step b{font-size:10px}
-.tiny-check{height:22px; padding:0 5px; font-size:10px}
-.big-btn{min-width:86px; height:30px; padding:0 14px; font-size:12px; letter-spacing:.05em; box-shadow:0 0 18px rgba(211,47,47,.34)}
-.damage-btn{min-width:82px; height:26px; padding:0 12px}
-.right{grid-template-rows:84px 1fr; gap:4px}
-.last-card{padding:8px 10px}
-.last-title{font-size:13px; line-height:1.05}
-.last-body{font-size:10px; line-height:1.25; -webkit-line-clamp:3}
-.side-note{display:grid; grid-template-columns:minmax(0,1fr) 82px; align-items:end; gap:6px; padding:0; background:none; border:none}
-.side-note .field{gap:3px}
-.side-note input{height:30px}
-.side-note button{height:30px; padding:0 10px; color:#fff; background:linear-gradient(180deg,#3b4455,#232a35); border-color:#4b5566; font-size:11px}
-.feed-card{display:none !important}
-.damage-track{grid-template-columns:minmax(260px,410px) minmax(260px,1fr); gap:12px}
-.damage-legend{justify-items:center; font-size:10px}
-.journal{position:fixed; right:8px; bottom:138px; width:500px; max-width:calc(100vw - 20px); height:min(380px, calc(100vh - 158px)); transform:translateX(calc(100% - 24px)); transition:transform .18s ease, opacity .18s ease; opacity:.98; z-index:6; background:linear-gradient(180deg,rgba(17,20,28,.985),rgba(8,10,14,.99)); border:1px solid var(--line); border-radius:14px 14px 0 14px; box-shadow:0 18px 44px rgba(0,0,0,.55); padding:10px; display:grid; grid-template-rows:auto auto 1fr; gap:8px}
+.tiny-check{
+  height:24px;
+  padding:0 5px;
+  font-size:10px;
+}
+.big-btn{
+  min-width:104px;
+  height:32px;
+  padding:0 16px;
+  font-size:12px;
+  letter-spacing:.06em;
+  border-color:#b92323;
+  box-shadow:0 0 20px rgba(211,47,47,.36);
+}
+.damage-btn{
+  min-width:88px;
+  height:28px;
+  padding:0 12px;
+}
+
+.right{
+  display:grid;
+  grid-template-rows:72px 1fr 34px;
+  gap:5px;
+}
+.last-card{
+  padding:8px 10px;
+}
+.last-label,.feed-label{
+  margin-bottom:3px;
+}
+.last-title{
+  font-size:15px;
+  line-height:1.05;
+  margin-bottom:3px;
+}
+.last-body{
+  font-size:10px;
+  line-height:1.25;
+  -webkit-line-clamp:2;
+}
+.feed-card{
+  display:block !important;
+  padding:6px 7px;
+}
+.recent-feed{
+  gap:4px;
+}
+.feed-row{
+  padding:4px 6px;
+  font-size:10px;
+  line-height:1.2;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.feed-row br{display:none}
+.feed-row b{
+  font-size:10px;
+}
+.side-note{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 76px;
+  gap:5px;
+  align-items:end;
+  padding:0;
+  background:none;
+  border:none;
+  min-width:0;
+}
+.side-note input{
+  height:30px;
+  min-width:0;
+}
+.side-note button{
+  height:30px;
+  padding:0 8px;
+  color:#fff;
+  background:linear-gradient(180deg,#3b4455,#232a35);
+  border-color:#4b5566;
+  font-size:11px;
+}
+.journal{
+  right:8px;
+  bottom:8px;
+  width:540px;
+  max-width:calc(100vw - 16px);
+  height:calc(100vh - 16px);
+  transform:translateX(calc(100% + 16px));
+  z-index:50;
+  border-radius:14px;
+}
 .journal.open{transform:translateX(0)}
-.journal-head{gap:10px}
-.journal-head b{font-size:15px}
-.journal-actions button{height:26px; padding:0 8px; color:var(--muted)}
-.scene-form{display:grid; grid-template-columns:minmax(0,1fr) 86px; gap:6px}
-.scene-form input{height:30px}
-.scene-form button{height:30px; padding:0 10px; background:linear-gradient(180deg,#d03434,#9f1f1f); border-color:#9f1f1f; color:#fff}
-.log{gap:6px; padding-right:2px}
-.log-item{padding:8px 9px}
-.log-text{font-size:11px; line-height:1.35}
-#toggle-log-btn.active{color:#fff; border-color:#5b6a7e; background:#2c3544}
-@media(min-width:1760px){.hud-grid{grid-template-columns:236px minmax(930px,1fr) 392px}}
-@media(max-width:1080px){.hud-grid{grid-template-columns:1fr}.right{grid-template-rows:auto auto}.side-note{grid-template-columns:1fr auto}.journal{right:8px;left:8px;bottom:8px;width:auto;height:min(60vh,420px)}}
+#toggle-log-btn.active{
+  color:#fff;
+  border-color:#5b6a7e;
+  background:#2c3544;
+}
+@media(min-width:1760px){
+  .hud-grid{grid-template-columns:240px minmax(720px,790px) minmax(780px,1fr)}
+}
+@media(max-width:1080px){
+  body{min-width:0;overflow:auto}
+  .hud-grid{grid-template-columns:1fr}
+  .left,.center,.right{height:auto}
+  .right{grid-template-rows:auto auto auto}
+  .side-note{grid-template-columns:1fr auto}
+}

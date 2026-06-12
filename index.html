@@ -3,17 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Scarlet Frontier HUD v0.15.15</title>
+  <title>Scarlet Frontier HUD v0.15.16</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=1515" />
+  <link rel="stylesheet" href="style.css?v=1516" />
 </head>
 <body>
   <main class="hud-shell">
     <header class="topbar panel">
       <div class="brandpack">
         <div class="kicker">SCARLET FRONTIER</div>
-        <div class="title">PLAYER HUD <span>v0.15.15</span></div>
+        <div class="title">PLAYER HUD <span>v0.15.16</span></div>
       </div>
       <div class="damage-track" title="Трек урона / ранений">
         <div class="damage-main">
@@ -95,11 +95,12 @@
           <div class="last-title">Нет событий</div>
           <div class="last-body">Броски и урон появятся здесь у всех игроков с открытым HUD.</div>
         </div>
+        <div class="feed-card">
+          <div class="feed-label">Короткий лог</div>
+          <div id="recent-feed" class="recent-feed"></div>
+        </div>
         <form class="quick-note side-note" id="chat-form">
-          <label class="field grow">
-            <span>Факт / реплика</span>
-            <input id="chat-input" placeholder="Короткая запись в общий журнал…" autocomplete="off" />
-          </label>
+          <input id="chat-input" placeholder="Факт / реплика в общий журнал…" autocomplete="off" />
           <button type="submit">Запись</button>
         </form>
       </section>
@@ -108,13 +109,13 @@
 
   <aside class="journal" id="journal" aria-hidden="true">
     <div class="journal-head">
-      <div><div class="kicker">ROOM FEED</div><b>Лог / журнал комнаты</b></div>
+      <div><div class="kicker">ROOM FEED</div><b>Журнал комнаты</b></div>
       <div class="journal-actions"><button id="export-log-btn">.txt</button><button id="clear-local-btn">Очистить</button><button id="close-log-btn">×</button></div>
     </div>
     <form class="scene-form" id="scene-form"><input id="scene-input" placeholder="Факт сцены, описание, решение ведущего…" autocomplete="off"><button type="submit">Добавить</button></form>
     <div class="log" id="log"></div>
   </aside>
 
-  <script type="module" src="main.js?v=1515"></script>
+  <script type="module" src="main.js?v=1516"></script>
 </body>
 </html>

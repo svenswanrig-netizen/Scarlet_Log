@@ -1,7 +1,7 @@
-const VERSION="1515";
-const CHANNEL="scarlet-frontier-hud-v15-15";
-const META_KEY="com.scarletfrontier.hud/v15.15";
-const STORAGE_KEY="scarlet-hud-v15-15";
+const VERSION="1516";
+const CHANNEL="scarlet-frontier-hud-v15-16";
+const META_KEY="com.scarletfrontier.hud/v15.16";
+const STORAGE_KEY="scarlet-hud-v15-16";
 const MAX_EVENTS=80;
 const SKILLS=[
   {n:"Насилие",attr:"attrBody"},{n:"Атлетика",attr:"attrBody"},{n:"Стойкость",attr:"attrBody"},{n:"Выживание",attr:"attrBody"},
@@ -150,21 +150,7 @@ function normWeapon(w){ let dmgCount=Number(w?.dmgCount), dmgDie=w?.dmgDie; if(!
 function weaponSummary(w){ const x=normWeapon(w); return `${x.name} ${x.dmgCount}${x.dmgDie}`; }
 function renderWeaponOptions(){ const c=currentChar(), sel=$("weapon-select"), old=sel.value; if(!c.weapons?.length) c.weapons=[normWeapon({})]; sel.innerHTML=c.weapons.map((w,i)=>`<option value="${i}">${esc(weaponSummary(w))}</option>`).join(""); if(old) sel.value=old; }
 
-function grantOtp(c,amount,opts={}){
-  if(amount<=0) return {before:c.otp,after:c.otp,odBefore:c.od,odAfter:c.od,text:""};
-  const before=c.otp, odBefore=c.od, max=c.otpMax||3;
-  const total=c.otp+amount;
-  const overflow=Math.max(0,total-max);
-  c.otp=Math.min(max,total);
-  if(opts.bankOverflow){
-    c.overflowOtp=(c.overflowOtp||0)+overflow;
-    if(c.overflowOtp>=2){
-      c.overflowOtp-=2;
-      c.od=clamp(c.od+1,0,9);
-    }
-  }
-  return {before,after:c.otp,odBefore,odAfter:c.od,text:`ОТП ${before}→${c.otp}${c.od!==odBefore?` · ОД ${odBefore}→${c.od}`:""}`};
-}
+function grantOtp(c,amount){ if(amount<=0) return {before:c.otp,after:c.otp,odBefore:c.od,odAfter:c.od,text:""}; const before=c.otp, odBefore=c.od, max=c.otpMax||3; let total=c.otp+amount; let overflow=Math.max(0,total-max); c.otp=Math.min(max,total); if(overflow>=2) c.od=clamp(c.od+1,0,9); return {before,after:c.otp,odBefore,odAfter:c.od,text:`ОТП ${before}→${c.otp}${c.od!==odBefore?` · ОД ${odBefore}→${c.od}`:""}`}; }
 function applyOtpDelta(c,delta){ const before=c.otp, odBefore=c.od; c.otp=clamp(c.otp+delta,0,c.otpMax||3); return {before,after:c.otp,odBefore,odAfter:c.od,text:`ОТП ${before}→${c.otp}`}; }
 function buildSkillPool(base,net){ let pool=[...base]; if(net>0){ const largest=pool.length?pool.reduce((a,b)=>sides(a)>=sides(b)?a:b,pool[0]):null; if(largest) for(let i=0;i<net;i++) pool.push(largest); } else if(net<0){ for(let i=0;i<Math.abs(net);i++){ if(!pool.length) break; let mx=0; pool.forEach((d,idx)=>{ if(sides(d)>sides(pool[mx])) mx=idx; }); pool.splice(mx,1); } } return pool; }
 function pickAttrDie(skill){ const c=currentChar(); const ref=SKILLS.find(s=>s.n===skill?.n)||SKILLS[0]; return c[ref.attr]||"d8"; }
@@ -207,8 +193,8 @@ async function rollDamage(){
 
 function renderRecentFeed(){
   const box=$("recent-feed"); if(!box) return;
-  const items=[...events].reverse().filter(ev=>["roll","damage"].includes(ev.type)).slice(0,2);
-  box.innerHTML=items.map(ev=>`<div class="feed-row"><span class="t">${esc(ev.time||"")}</span><b>${esc(ev.actor||"Система")}</b> — ${esc(ev.resultLabel || ev.title || ev.type)}<br>${esc(ev.summary||ev.text||"")}</div>`).join("") || '<div class="feed-row">Пока нет бросков.</div>';
+  const items=[...events].reverse().filter(ev=>["roll","damage","chat","scene"].includes(ev.type) || (ev.type==="system" && ev.title==="Состояние")).slice(0,4);
+  box.innerHTML=items.map(ev=>`<div class="feed-row"><span class="t">${esc(ev.time||"")}</span><b>${esc(ev.actor||"Система")}</b> — ${esc(ev.resultLabel || ev.title || ev.type)}<br>${esc(ev.summary||ev.text||"")}</div>`).join("") || '<div class="feed-row">Пока нет записей.</div>';
 }
 
 function renderLatest(){
