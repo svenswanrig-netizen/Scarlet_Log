@@ -3,108 +3,137 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Scarlet Frontier Log v0.13</title>
+  <title>Scarlet Frontier HUD v0.14</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=130" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=140" />
 </head>
 <body>
-  <main class="app">
-    <header class="topbar">
-      <div class="brand">
-        <div class="kicker">Scarlet Frontier</div>
-        <h1>Нижний HUD <span>v0.13</span></h1>
+  <main class="hud">
+    <section class="left module">
+      <div class="brandline">
+        <div>
+          <div class="kicker">SCARLET FRONTIER</div>
+          <div class="title">PLAYER HUD <span>v0.14</span></div>
+        </div>
+        <div class="net" id="net-status">local</div>
       </div>
-      <div class="top-actions">
-        <button class="ghost" id="import-btn" title="Загрузить JSON из полного листа">JSON</button>
-        <button class="ghost" id="open-sheet-btn" title="Открыть полный лист активного персонажа">Лист</button>
-        <input id="file-input" type="file" accept=".json,application/json" hidden />
-        <button class="ghost" id="new-char-btn">+ Перс.</button>
-        <button class="ghost" id="new-turn-btn" title="Выставить ОД 3 и записать новый ход">Новый ход</button>
-        <button class="ghost" id="toggle-log-btn" aria-expanded="false">Журнал ▸</button>
-        <div class="kbd-hints">Ctrl+Enter бросок · Shift+Enter урон · Ctrl+J журнал</div>
-        <div class="status" id="net-status">подключение…</div>
+
+      <div class="charline">
+        <label class="select-wrap grow">
+          <span>Оперативник</span>
+          <select id="char-select"></select>
+        </label>
+        <input class="name-input" id="char-name" placeholder="Имя" />
       </div>
-    </header>
 
-    <section class="main-grid">
-      <section class="panel controls">
-        <div class="char-row">
-          <label class="field char-select">
-            <span>Персонаж</span>
-            <select id="char-select"></select>
-          </label>
-          <label class="field char-name">
-            <span>Имя</span>
-            <input id="char-name" placeholder="Полли" />
-          </label>
-          <div class="res-track visual" data-track="otp">
-            <div class="res-head"><span>ОТП</span><strong id="otp-val">0</strong><em id="otp-max">/3</em></div>
-            <div class="pip-track" id="otp-pips" title="Клик по точке выставляет значение"></div>
-          </div>
-          <div class="res-track visual" data-track="od">
-            <div class="res-head"><span>ОД</span><strong id="od-val">3</strong></div>
-            <div class="pip-track od" id="od-pips" title="Клик по точке выставляет значение"></div>
-          </div>
-          <div class="res-track spbox">
-            <span>SP</span>
-            <button class="round" data-res="sp" data-delta="-1">−</button>
-            <strong id="sp-val">0</strong>
-            <button class="round" data-res="sp" data-delta="1">+</button>
-          </div>
+      <div class="resources">
+        <div class="track otp">
+          <div class="track-head"><span>ОТП</span><b id="otp-val">0</b><em id="otp-max">/3</em></div>
+          <div class="pips round-pips" id="otp-pips"></div>
         </div>
-
-        <div class="action-row roll-row">
-          <label class="field skill-field">
-            <span>Проверка</span>
-            <select id="skill-select"></select>
-          </label>
-          <label class="field dice-field"><span>Кости</span><div class="dice-pair"><select id="die-1"></select><select id="die-2"></select></div></label>
-          <label class="field mini"><span>TN</span><select id="tn"><option>3</option><option selected>4</option><option>5</option><option>6</option><option>7</option></select></label>
-          <div class="stepper"><span>Преим.</span><button data-step="adv" data-delta="-1">−</button><strong id="adv-val">0</strong><button data-step="adv" data-delta="1">+</button></div>
-          <div class="stepper"><span>Помех.</span><button data-step="dis" data-delta="-1">−</button><strong id="dis-val">0</strong><button data-step="dis" data-delta="1">+</button></div>
-          <label class="check"><input id="insurance" type="checkbox"> страховка</label>
-          <label class="check"><input id="zero" type="checkbox"> зеро</label>
-          <button class="primary" id="roll-skill-btn">БРОСОК</button>
+        <div class="track od">
+          <div class="track-head"><span>ОД</span><b id="od-val">3</b></div>
+          <div class="pips square-pips" id="od-pips"></div>
         </div>
-
-        <div class="action-row damage-row">
-          <label class="field weapon-field"><span>Урон</span><select id="weapon-select"></select></label>
-          <label class="field ammo-field"><span>Боеприпас</span><select id="ammo-type"><option value="light">Лёгк.</option><option value="ap">Брон.</option><option value="exp">Эксп.</option></select></label>
-          <label class="field sp-field"><span>SP цели</span><input id="target-sp" type="number" min="0" max="99" value="0"></label>
-          <button class="primary damage" id="roll-damage-btn">УРОН</button>
-          <form class="chat-form" id="chat-form">
-            <input id="chat-input" placeholder="Факт сцены / описание / реплика…" autocomplete="off">
-            <button class="ghost" type="submit">Запись</button>
-          </form>
+        <div class="sp-chip">
+          <span>SP</span>
+          <button data-res="sp" data-delta="-1">−</button>
+          <b id="sp-val">0</b>
+          <button data-res="sp" data-delta="1">+</button>
         </div>
-      </section>
-
-      <aside class="side-stack">
-        <section class="panel latest" id="latest-card">
-          <div class="latest-label">Последний результат</div>
-          <div class="latest-title">Пока нет событий</div>
-          <div class="latest-body">Загрузи персонажа JSON или создай пустого. Броски появятся здесь у всех, у кого открыт Scarlet Log.</div>
-        </section>
-        <section class="panel side-log collapsed" id="log-drawer">
-          <div class="drawer-head compact-head">
-            <div class="drawer-title"><b>Журнал</b><span>новые сверху</span></div>
-            <div class="drawer-actions">
-              <button class="ghost" id="export-log-btn">.txt</button>
-              <button class="ghost" id="clear-local-btn">Очистить</button>
-            </div>
-          </div>
-          <form class="scene-form" id="scene-form">
-            <input id="scene-input" placeholder="Факт сцены, описание, решение ведущего…" autocomplete="off">
-            <button class="primary small" type="submit">+</button>
-          </form>
-          <div class="log" id="log"></div>
-        </section>
-      </aside>
+      </div>
     </section>
 
+    <section class="center module">
+      <div class="injury-strip" title="Трек ранений">
+        <div class="inj-group light"><span>Л</span><div id="inj-light" class="inj-pips"></div></div>
+        <div class="inj-group med"><span>С</span><div id="inj-med" class="inj-pips"></div></div>
+        <div class="inj-group heavy"><span>Т</span><div id="inj-heavy" class="inj-pips"></div></div>
+        <div class="inj-group crit"><span>К</span><div id="inj-crit" class="inj-pips"></div></div>
+      </div>
+
+      <div class="rollbar">
+        <label class="field skill">
+          <span>Проверка</span>
+          <select id="skill-select"></select>
+        </label>
+        <label class="field dice">
+          <span>Кость 1</span>
+          <select id="die-1"></select>
+        </label>
+        <label class="field dice">
+          <span>Кость 2</span>
+          <select id="die-2"></select>
+        </label>
+        <label class="field tn">
+          <span>TN</span>
+          <select id="tn"><option>3</option><option selected>4</option><option>5</option><option>6</option><option>7</option></select>
+        </label>
+        <div class="mini-step adv"><span>+К</span><button data-step="adv" data-delta="-1">−</button><b id="adv-val">0</b><button data-step="adv" data-delta="1">+</button></div>
+        <div class="mini-step dis"><span>−К</span><button data-step="dis" data-delta="-1">−</button><b id="dis-val">0</b><button data-step="dis" data-delta="1">+</button></div>
+        <label class="tiny-check"><input id="insurance" type="checkbox"><span>Страх.</span></label>
+        <label class="tiny-check"><input id="zero" type="checkbox"><span>Зеро</span></label>
+        <button class="big-btn" id="roll-skill-btn">БРОСОК</button>
+      </div>
+
+      <div class="damagebar">
+        <label class="field weapon">
+          <span>Урон</span>
+          <select id="weapon-select"></select>
+        </label>
+        <label class="field ammo">
+          <span>Боеприпас</span>
+          <select id="ammo-type"><option value="light">Лёгкий</option><option value="ap">Бронебойный</option><option value="exp">Экспансивный</option></select>
+        </label>
+        <label class="field tsp">
+          <span>SP цели</span>
+          <input id="target-sp" type="number" min="0" max="99" value="0" />
+        </label>
+        <button class="damage-btn" id="roll-damage-btn">УРОН</button>
+        <form class="quick-note" id="chat-form">
+          <input id="chat-input" placeholder="Факт / реплика / заметка…" autocomplete="off" />
+          <button type="submit">Запись</button>
+        </form>
+      </div>
+    </section>
+
+    <section class="right module">
+      <div class="last-card" id="latest-card">
+        <div class="last-label">Последний результат</div>
+        <div class="last-title">Нет событий</div>
+        <div class="last-body">Броски и урон появятся здесь у всех игроков с открытым HUD.</div>
+      </div>
+      <div class="toolrow">
+        <button id="new-turn-btn">Новый ход</button>
+        <button id="import-btn">JSON</button>
+        <button id="open-sheet-btn">Лист</button>
+        <button id="toggle-log-btn">Журнал</button>
+        <input id="file-input" type="file" accept=".json,application/json" hidden />
+      </div>
+    </section>
   </main>
-  <div id="toast-stack" class="toast-stack" aria-live="polite"></div>
-  <script type="module" src="main.js?v=130"></script>
+
+  <aside class="journal" id="journal" aria-hidden="true">
+    <div class="journal-head">
+      <div>
+        <div class="kicker">ROOM FEED</div>
+        <b>Журнал комнаты</b>
+      </div>
+      <div class="journal-actions">
+        <button id="export-log-btn">.txt</button>
+        <button id="clear-local-btn">Очистить</button>
+        <button id="close-log-btn">×</button>
+      </div>
+    </div>
+    <form class="scene-form" id="scene-form">
+      <input id="scene-input" placeholder="Факт сцены, описание, решение ведущего…" autocomplete="off">
+      <button type="submit">Добавить</button>
+    </form>
+    <div class="log" id="log"></div>
+  </aside>
+
+  <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
+  <script type="module" src="main.js?v=140"></script>
 </body>
 </html>

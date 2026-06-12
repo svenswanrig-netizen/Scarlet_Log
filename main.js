@@ -1,9 +1,8 @@
-const VERSION = "130";
-const CHANNEL = "scarlet-frontier-log-v13";
-const META_KEY = "com.scarletfrontier.log/v13";
-const MAX_EVENTS = 60;
-const STORAGE_KEY = "scarlet-log-hud-v13";
-const UI_KEY = "scarlet-log-ui-v13";
+const VERSION = "140";
+const CHANNEL = "scarlet-frontier-hud-v14";
+const META_KEY = "com.scarletfrontier.hud/v14";
+const STORAGE_KEY = "scarlet-hud-v14";
+const MAX_EVENTS = 80;
 
 const SKILLS = [
   { n:"Насилие", a:"ТЕЛО", attr:"attrBody" }, { n:"Атлетика", a:"ТЕЛО", attr:"attrBody" }, { n:"Стойкость", a:"ТЕЛО", attr:"attrBody" }, { n:"Выживание", a:"ТЕЛО", attr:"attrBody" },
@@ -11,389 +10,339 @@ const SKILLS = [
   { n:"Следствие", a:"РАЗУМ", attr:"attrMind" }, { n:"Влияние", a:"РАЗУМ", attr:"attrMind" }, { n:"Медицина", a:"РАЗУМ", attr:"attrMind" }, { n:"Техника", a:"РАЗУМ", attr:"attrMind" }, { n:"Психика", a:"РАЗУМ", attr:"attrMind" }
 ];
 const DICE = ["d4","d6","d8","d10","d12"];
-
-let OBR = null;
-let online = false;
-let seen = new Set();
-let events = [];
-let roomActors = {};
+let OBR = null, online = false, seen = new Set(), events = [], adv=0, dis=0;
 let state = { activeId:"", chars:{} };
-let adv = 0, dis = 0;
-let ui = { logOpen:false };
 
 const $ = id => document.getElementById(id);
-const clamp = (n,min,max) => Math.max(min, Math.min(max, Number(n)||0));
-const uid = () => `${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
-const nowTime = () => new Date().toLocaleTimeString("ru-RU", {hour:"2-digit", minute:"2-digit"});
-const sides = d => Number(String(d||"d6").replace("d","")) || 6;
-const rollDie = d => Math.floor(Math.random()*sides(d))+1;
-const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c]));
+const clamp = (n,min,max)=>Math.max(min,Math.min(max,Number(n)||0));
+const uid = ()=>`${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+const nowTime = ()=>new Date().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"});
+const sides = d=>Number(String(d||"d6").replace("d",""))||6;
+const rollDie = d=>Math.floor(Math.random()*sides(d))+1;
+const esc = s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c]));
 
 function defaultChar(name="Оперативник"){
-  const id = `char_${uid()}`;
-  return { id, name, attrBody:"d8", attrReact:"d8", attrMind:"d8", otp:0, otpMax:3, od:3, sp:0, skills:SKILLS.map(s=>({ n:s.n, dice:[] })), weapons:[] };
+  return {
+    id: uid(), name, attrBody:"d8", attrReact:"d8", attrMind:"d8",
+    otp:0, otpMax:3, od:3, sp:0,
+    injuries:{ light:[false,false,false,false], med:[false,false], heavy:[false], crit:[false] },
+    skills: SKILLS.map(s=>({n:s.n,dice:[]})),
+    weapons:[{name:"Оружие", dmgCount:1, dmgDie:"d6", ammoLight:0, ammoAP:0, ammoExp:0}]
+  };
 }
 function currentChar(){
-  if (!state.activeId || !state.chars[state.activeId]) {
-    const c = defaultChar(); state.chars[c.id]=c; state.activeId=c.id;
+  if(!state.activeId || !state.chars[state.activeId]){
+    const c=defaultChar(); state.chars[c.id]=c; state.activeId=c.id;
   }
   return state.chars[state.activeId];
 }
-function saveLocal(){ localStorage.setItem(STORAGE_KEY, JSON.stringify({ state, events: events.slice(-MAX_EVENTS), roomActors })); }
+function saveLocal(){ localStorage.setItem(STORAGE_KEY, JSON.stringify({state, events})); }
 function loadLocal(){
   try{
-    const raw = localStorage.getItem(STORAGE_KEY); if(!raw) return;
-    const parsed = JSON.parse(raw);
-    if (parsed.state?.chars) state = parsed.state;
-    events = Array.isArray(parsed.events) ? parsed.events.slice(-MAX_EVENTS) : [];
-    roomActors = parsed.roomActors || {};
-    seen = new Set(events.map(e=>e.id));
-  }catch(e){ console.warn(e); }
+    const raw=localStorage.getItem(STORAGE_KEY); if(!raw) throw 0;
+    const data=JSON.parse(raw); if(data?.state) state=data.state; if(Array.isArray(data?.events)) events=data.events;
+  }catch{}
+  if(!Object.keys(state.chars).length){ const c=defaultChar(); state.chars[c.id]=c; state.activeId=c.id; }
+  for(const ev of events) if(ev?.id) seen.add(ev.id);
 }
+function nowActor(){ return currentChar().name || "Оперативник"; }
 
-function loadUi(){
-  try{ const saved = JSON.parse(localStorage.getItem(UI_KEY)||"{}"); ui = { ...ui, ...saved }; }catch{}
-}
-function saveUi(){ localStorage.setItem(UI_KEY, JSON.stringify(ui)); }
-function applyUi(){
-  const drawer = $("log-drawer");
-  if(drawer) drawer.classList.toggle("collapsed", !ui.logOpen);
-  const logBtn = $("toggle-log-btn");
-  if(logBtn){ logBtn.setAttribute("aria-expanded", ui.logOpen ? "true" : "false"); logBtn.textContent = ui.logOpen ? "Журнал ◂" : "Журнал ▸"; }
-}
-function toggleLog(){ ui.logOpen = !ui.logOpen; saveUi(); applyUi(); }
-
-async function waitReady(){ if(OBR?.isReady) return; await new Promise(resolve=>{ const unsub = OBR.onReady(()=>{ try{unsub?.()}catch{} resolve(); }); }); }
+async function waitReady(){ if(OBR?.isReady) return; await new Promise(resolve=>{ const unsub=OBR.onReady(()=>{try{unsub?.()}catch{} resolve();}); }); }
 async function loadSdk(){
   try{
     const mod = await import("https://cdn.jsdelivr.net/npm/@owlbear-rodeo/sdk@latest/+esm");
     OBR = mod.default;
-    if (!OBR?.isAvailable) throw new Error("OBR unavailable");
-    await waitReady(); online = true;
-    $("net-status").textContent = "online"; $("net-status").className = "status online";
+    if(!OBR?.isAvailable) throw new Error("OBR unavailable");
+    await waitReady(); online=true;
+    $("net-status").textContent="online"; $("net-status").className="net online";
     setupBroadcast(); setupMetadataListener(); await loadRoomState();
-    await publishActor();
-    if (!events.some(e => e.type === "system" && e.text?.includes("v0.13"))) addSystemLocal("Scarlet Log v0.13: визуальные ОТП/ОД, боковой журнал. Ctrl+Enter — бросок, Shift+Enter — урон, Ctrl+J — журнал.");
-  }catch(err){
-    online = false;
-    $("net-status").textContent = "local"; $("net-status").className = "status local";
-    addSystemLocal("Локальный режим: онлайн-синхронизация работает только внутри комнаты Owlbear.");
-    console.warn(err);
+  }catch(e){
+    online=false; $("net-status").textContent="local"; $("net-status").className="net";
+    console.warn("OBR offline", e);
   }
 }
 function setupBroadcast(){
-  try{ OBR.broadcast.onMessage(CHANNEL, (msg)=>{ const ev = msg?.data ?? msg; if(ev?.id) receiveEvent(ev); }); }
-  catch(e){ console.warn("broadcast listener", e); }
+  try{ OBR.broadcast.onMessage(CHANNEL, msg=>{ const ev=msg?.data??msg; if(ev?.id) receiveEvent(ev); }); }catch(e){ console.warn(e); }
 }
 function setupMetadataListener(){
-  try{ OBR.room.onMetadataChange(meta => applyRoomState(meta?.[META_KEY])); }
-  catch(e){ console.warn("metadata listener", e); }
+  try{ OBR.room.onMetadataChange(meta=>applyRoomState(meta?.[META_KEY])); }catch(e){ console.warn(e); }
 }
 async function loadRoomState(){
-  try{ const meta = await OBR.room.getMetadata(); applyRoomState(meta?.[META_KEY]); }
-  catch(e){ console.warn("metadata load", e); }
+  try{ const meta=await OBR.room.getMetadata(); applyRoomState(meta?.[META_KEY]); }catch(e){ console.warn(e); }
 }
 function applyRoomState(rs){
-  if(!rs || typeof rs !== "object") return;
-  if(rs.actors) roomActors = { ...roomActors, ...rs.actors };
-  if(Array.isArray(rs.events)) rs.events.forEach(ev => addEventLocal(ev, false));
+  if(!rs || typeof rs!=="object") return;
+  if(Array.isArray(rs.events)) rs.events.forEach(ev=>addEventLocal(ev,false,false));
   renderAll(); saveLocal();
 }
 async function saveRoomState(extraEvent=null){
   if(!online || !OBR?.room) return;
   try{
-    const meta = await OBR.room.getMetadata();
-    const old = meta?.[META_KEY] || {};
-    const map = new Map();
-    for(const ev of (Array.isArray(old.events)?old.events:[])) if(ev?.id) map.set(ev.id, ev);
-    for(const ev of events) if(ev?.id) map.set(ev.id, ev);
-    if(extraEvent?.id) map.set(extraEvent.id, extraEvent);
-    const nextEvents = Array.from(map.values()).sort((a,b)=>(a.ts||0)-(b.ts||0)).slice(-MAX_EVENTS);
-    await OBR.room.setMetadata({ [META_KEY]: { events: nextEvents, actors: { ...(old.actors||{}), ...roomActors }, updated: Date.now() } });
-  }catch(e){ console.warn("metadata save", e); }
-}
-async function publishActor(){
-  const c = currentChar();
-  roomActors[c.name] = { otp:c.otp, od:c.od, sp:c.sp, updated:Date.now() };
-  saveLocal(); renderAll(); await saveRoomState();
+    const meta=await OBR.room.getMetadata();
+    const old=meta?.[META_KEY] || {};
+    const map=new Map();
+    for(const ev of (Array.isArray(old.events)?old.events:[])) if(ev?.id) map.set(ev.id,ev);
+    for(const ev of events) if(ev?.id) map.set(ev.id,ev);
+    if(extraEvent?.id) map.set(extraEvent.id,extraEvent);
+    const next=Array.from(map.values()).sort((a,b)=>(a.ts||0)-(b.ts||0)).slice(-MAX_EVENTS);
+    await OBR.room.setMetadata({[META_KEY]:{events:next,updated:Date.now()}});
+  }catch(e){ console.warn(e); }
 }
 async function broadcastEvent(ev){
   ev.ts ||= Date.now(); ev.time ||= nowTime();
-  addEventLocal(ev, true, true);
+  addEventLocal(ev,true,true);
   if(online && OBR?.broadcast){
-    try{ await OBR.broadcast.sendMessage(CHANNEL, ev, { destination:"REMOTE" }); }
-    catch(e){ console.warn("broadcast send", e); }
+    try{ await OBR.broadcast.sendMessage(CHANNEL, ev, {destination:"REMOTE"}); }catch(e){ console.warn(e); }
   }
   await saveRoomState(ev);
 }
-function receiveEvent(ev){ addEventLocal(ev, true, true); }
-function addEventLocal(ev, persist=true, flash=false){
+function receiveEvent(ev){ addEventLocal(ev,true,true); }
+function addEventLocal(ev,persist=true,flash=false){
   if(!ev?.id || seen.has(ev.id)) return;
-  seen.add(ev.id); events.push(ev); events = events.slice(-MAX_EVENTS);
-  if(ev.actor && ev.resourcesAfter) roomActors[ev.actor] = { ...roomActors[ev.actor], ...ev.resourcesAfter, updated:Date.now() };
-  renderAll();
-  if(flash && (ev.type === "roll" || ev.type === "damage" || ev.type === "resource")) showToast(ev);
+  seen.add(ev.id); events.push(ev); events=events.slice(-MAX_EVENTS);
+  renderAll(); if(flash && ["roll","damage","chat","scene"].includes(ev.type)) showToast(ev);
   if(persist) saveLocal();
 }
 function showToast(ev){
-  const stack = $("toast-stack"); if(!stack) return;
-  const t = document.createElement("div");
-  t.className = `toast ${ev.pill || ev.type || "info"}`;
-  let title = ev.actor || "Scarlet";
-  if(ev.type === "roll") title = `${ev.actor} — ${ev.title}: ${ev.resultLabel}`;
-  if(ev.type === "damage") title = `${ev.actor} — урон: ${ev.title}`;
-  if(ev.type === "resource") title = `${ev.actor} — ресурсы`;
-  t.innerHTML = `<div class="toast-title">${esc(title)}</div><div class="toast-body">${esc(ev.summary || ev.text || "")}</div>`;
-  stack.prepend(t);
-  setTimeout(()=>{ t.style.opacity="0"; t.style.transform="translateY(-6px)"; t.style.transition=".18s"; }, 5600);
-  setTimeout(()=>t.remove(), 5900);
-}
-function addSystemLocal(text){ addEventLocal({ id:uid(), type:"system", actor:"System", ts:Date.now(), time:nowTime(), text }, true); }
-
-function normWeapon(w){
-  if(!w) return { name:"Оружие", dmgCount:1, dmgDie:"d6", ammoLight:0, ammoAP:0, ammoExp:0 };
-  let dmgCount = Number(w.dmgCount); let dmgDie = w.dmgDie;
-  if(!dmgCount || !DICE.includes(dmgDie)){
-    const m = String(w.dmg || "1d6").match(/(\d*)d(4|6|8|10|12)/i);
-    dmgCount = m ? (Number(m[1] || 1) || 1) : 1;
-    dmgDie = m ? `d${m[2]}` : "d6";
-  }
-  return { name: String(w.name || "Оружие"), dmgCount: clamp(dmgCount,1,6), dmgDie: DICE.includes(dmgDie)?dmgDie:"d6", ammoLight:Number(w.ammoLight||0), ammoAP:Number(w.ammoAP||0), ammoExp:Number(w.ammoExp||0) };
-}
-function importCharacter(data, fileName=""){
-  const guessedName = String(data?.name || "").trim() || String(fileName || "").replace(/\.json$/i,"").replace(/^scarlet[_-]?/i,"").replace(/[_-]+/g," ").trim() || "Оперативник";
-  const c = defaultChar(guessedName);
-  c.sourceJsonName = fileName || "";
-  c.attrBody = DICE.includes(data?.attrBody) ? data.attrBody : "d8";
-  c.attrReact = DICE.includes(data?.attrReact) ? data.attrReact : "d8";
-  c.attrMind = DICE.includes(data?.attrMind) ? data.attrMind : "d8";
-  c.otp = clamp(data?.otp,0, data?.otpMax || 3);
-  c.otpMax = clamp(data?.otpMax || 3,1,6);
-  c.od = Array.isArray(data?.od) ? data.od.filter(Boolean).length : clamp(data?.od ?? 3,0,9);
-  c.sp = clamp(data?.sp,0,99);
-  c.skills = SKILLS.map((sk, i) => {
-    const saved = Array.isArray(data?.skills) ? (data.skills.find(x=>x?.n===sk.n) || data.skills[i]) : null;
-    const dice = Array.isArray(saved?.dice) ? saved.dice.filter(d=>DICE.includes(d)).slice(0,2) : [];
-    return { n:sk.n, dice };
-  });
-  c.weapons = Array.isArray(data?.weapons) ? data.weapons.map(normWeapon) : [];
-  const existing = Object.values(state.chars);
-  const onlyBlankDefault = existing.length === 1 && existing[0].name === "Оперативник" && !existing[0].skills.some(x=>x.dice?.length) && !existing[0].weapons?.length;
-  if(onlyBlankDefault){ delete state.chars[existing[0].id]; }
-  state.chars[c.id]=c; state.activeId=c.id;
-  saveLocal(); renderAll(); publishActor();
-  addSystemLocal(`Загружен персонаж: ${c.name}. Навыков: ${c.skills.filter(s=>s.dice?.length).length}; оружия: ${c.weapons.length || 1}.`);
-  showToast({type:"system", pill:"info", actor:"System", text:`Загружен персонаж: ${c.name}`, summary:`Навыков: ${c.skills.filter(s=>s.dice?.length).length}; оружия: ${c.weapons.length || 1}`});
+  const box=$("toast-stack"); if(!box) return;
+  const t=document.createElement("div"); t.className=`toast ${ev.pill||""}`;
+  const title=ev.type==="roll" ? `${ev.actor} — ${ev.title}: ${ev.resultLabel}` : ev.type==="damage" ? `${ev.actor} — ${ev.title}` : ev.actor || "Scarlet";
+  t.innerHTML=`<div class="toast-title">${esc(title)}</div><div class="toast-body">${esc(ev.summary||ev.text||"")}</div>`;
+  box.prepend(t); setTimeout(()=>{t.style.opacity="0";t.style.transform="translateY(6px)";t.style.transition=".2s"},4200); setTimeout(()=>t.remove(),4500);
 }
 
+function renderAll(){ syncControls(); renderLatest(); renderLog(); }
 function syncControls(){
-  const c = currentChar();
-  $("char-name").value = c.name || ""; $("otp-val").textContent = c.otp; $("otp-max").textContent = `/${c.otpMax||3}`; $("od-val").textContent = c.od; $("sp-val").textContent = c.sp;
-  renderResourcePips("otp", c.otp, c.otpMax || 3);
-  renderResourcePips("od", c.od, Math.max(4, c.od || 3));
-  const sel = $("char-select"); const old = sel.value;
-  sel.innerHTML = Object.values(state.chars).map(ch => `<option value="${esc(ch.id)}"${ch.id===state.activeId?" selected":""}>${esc(ch.name||"Оперативник")}</option>`).join("");
-  if(old && state.chars[old]) sel.value = state.activeId;
+  const c=currentChar();
+  $("char-name").value=c.name||""; $("otp-val").textContent=c.otp; $("otp-max").textContent=`/${c.otpMax||3}`; $("od-val").textContent=c.od; $("sp-val").textContent=c.sp;
+  renderResourcePips("otp",c.otp,c.otpMax||3); renderResourcePips("od",c.od,Math.max(3,c.od||3));
+  renderInjuries();
+  const cs=$("char-select"); const old=cs.value;
+  cs.innerHTML=Object.values(state.chars).map(ch=>`<option value="${esc(ch.id)}"${ch.id===state.activeId?" selected":""}>${esc(ch.name||"Оперативник")}</option>`).join("");
+  if(old && state.chars[old]) cs.value=state.activeId;
   renderSkillOptions(); renderWeaponOptions();
+  $("adv-val").textContent=adv; $("dis-val").textContent=dis;
 }
-function renderResourcePips(key, value, max){
-  const box = $(`${key}-pips`); if(!box) return;
-  box.innerHTML = "";
+function renderResourcePips(key,value,max){
+  const box=$(`${key}-pips`); box.innerHTML="";
   for(let i=0;i<max;i++){
-    const p=document.createElement("button");
-    p.type="button";
-    p.className=`res-pip ${i<value?"on":""}`;
-    p.title=`${key.toUpperCase()} ${i+1}`;
-    p.onclick=()=>setResourceValue(key, value===i+1 ? i : i+1);
-    box.appendChild(p);
+    const p=document.createElement("button"); p.type="button"; p.className=`res-pip ${i<value?"on":""}`;
+    p.onclick=()=>setResourceValue(key,value===i+1?i:i+1); box.appendChild(p);
   }
 }
-async function setResourceValue(key, value){
-  const c=currentChar(); const before={otp:c.otp, od:c.od, sp:c.sp};
+function setResourceValue(key,value){
+  const c=currentChar();
   if(key==="otp") c.otp=clamp(value,0,c.otpMax||3);
   if(key==="od") c.od=clamp(value,0,9);
-  saveLocal(); await publishActor(); renderAll();
-  await broadcastEvent({ id:uid(), type:"resource", actor:c.name, pill:"info", summary:`ОТП ${before.otp}→${c.otp} · ОД ${before.od}→${c.od} · SP ${before.sp}→${c.sp}`, resourcesAfter:{otp:c.otp, od:c.od, sp:c.sp}, ts:Date.now(), time:nowTime() });
+  saveLocal(); renderAll(); saveRoomState();
 }
-function skillSummary(skill){ return skill.dice?.length ? `${skill.n} · ${skill.dice.join("+")}` : `${skill.n} · Зеро`; }
+function adjustSp(delta){ const c=currentChar(); c.sp=clamp(c.sp+Number(delta),0,99); saveLocal(); renderAll(); saveRoomState(); }
+
+function renderInjuries(){
+  const c=currentChar(); if(!c.injuries) c.injuries={light:[false,false,false,false],med:[false,false],heavy:[false],crit:[false]};
+  [["light","inj-light",4],["med","inj-med",2],["heavy","inj-heavy",1],["crit","inj-crit",1]].forEach(([k,id,n])=>{
+    if(!Array.isArray(c.injuries[k])) c.injuries[k]=Array(n).fill(false);
+    const box=$(id); box.innerHTML="";
+    c.injuries[k].slice(0,n).forEach((v,i)=>{
+      const b=document.createElement("button"); b.type="button"; b.className=`inj-pip ${v?"on "+k:""}`;
+      b.onclick=()=>{ c.injuries[k][i]=!c.injuries[k][i]; saveLocal(); renderAll(); saveRoomState(); };
+      box.appendChild(b);
+    });
+  });
+}
+function skillSummary(s){ return s.dice?.length ? `${s.n} · ${s.dice.join("+")}` : `${s.n} · Зеро`; }
 function renderSkillOptions(){
-  const c = currentChar(); const sel = $("skill-select"); const old = sel.value;
-  sel.innerHTML = c.skills.map((s,i)=>`<option value="${i}">${esc(skillSummary(s))}</option>`).join("");
-  if(old && c.skills[Number(old)]) sel.value = old;
+  const c=currentChar(), sel=$("skill-select"), old=sel.value;
+  sel.innerHTML=c.skills.map((s,i)=>`<option value="${i}">${esc(skillSummary(s))}</option>`).join("");
+  if(old && c.skills[Number(old)]) sel.value=old;
   renderDiceEditor();
 }
-function diceOptionHtml(selected){
-  return [''].concat(DICE).map(d=>`<option value="${d}"${d===selected?' selected':''}>${d || '—'}</option>`).join('');
-}
+function diceOptionHtml(selected){ return ["",...DICE].map(d=>`<option value="${d}"${d===selected?" selected":""}>${d||"—"}</option>`).join(""); }
 function renderDiceEditor(){
-  const c = currentChar(); const i = Number($("skill-select")?.value)||0; const sk = c.skills[i] || c.skills[0];
-  const d1 = $("die-1"), d2 = $("die-2"); if(!d1 || !d2 || !sk) return;
-  d1.innerHTML = diceOptionHtml(sk.dice?.[0] || '');
-  d2.innerHTML = diceOptionHtml(sk.dice?.[1] || '');
+  const c=currentChar(), i=Number($("skill-select").value)||0, sk=c.skills[i]||c.skills[0];
+  $("die-1").innerHTML=diceOptionHtml(sk?.dice?.[0]||"");
+  $("die-2").innerHTML=diceOptionHtml(sk?.dice?.[1]||"");
 }
 function applyDiceEditor(){
-  const c = currentChar(); const i = Number($("skill-select")?.value)||0; const sk = c.skills[i]; if(!sk) return;
-  const dice = [$("die-1")?.value || '', $("die-2")?.value || ''].filter(d=>DICE.includes(d));
-  sk.dice = dice;
-  saveLocal(); renderAll(); publishActor();
+  const c=currentChar(), i=Number($("skill-select").value)||0, sk=c.skills[i]; if(!sk) return;
+  sk.dice=[$("die-1").value,$("die-2").value].filter(d=>DICE.includes(d));
+  saveLocal(); renderSkillOptions(); saveRoomState();
 }
-function weaponSummary(w){ return `${w.name || "Оружие"} ${w.dmgCount}${w.dmgDie}`; }
+function normWeapon(w){
+  let dmgCount=Number(w?.dmgCount), dmgDie=w?.dmgDie;
+  if(!dmgCount || !DICE.includes(dmgDie)){
+    const m=String(w?.dmg||"1d6").match(/(\d*)d(4|6|8|10|12)/i);
+    dmgCount=m?Number(m[1]||1):1; dmgDie=m?`d${m[2]}`:"d6";
+  }
+  return {name:String(w?.name||"Оружие"),dmgCount:clamp(dmgCount,1,6),dmgDie:DICE.includes(dmgDie)?dmgDie:"d6",ammoLight:Number(w?.ammoLight||0),ammoAP:Number(w?.ammoAP||0),ammoExp:Number(w?.ammoExp||0)};
+}
+function weaponSummary(w){ const x=normWeapon(w); return `${x.name} ${x.dmgCount}${x.dmgDie}`; }
 function renderWeaponOptions(){
-  const c = currentChar(); const sel = $("weapon-select"); const old = sel.value;
-  if(!c.weapons.length) c.weapons = [normWeapon({name:"Оружие", dmgCount:1, dmgDie:"d6"})];
-  sel.innerHTML = c.weapons.map((w,i)=>`<option value="${i}">${esc(weaponSummary(normWeapon(w)))}</option>`).join("");
-  if(old) sel.value = old;
+  const c=currentChar(), sel=$("weapon-select"), old=sel.value;
+  if(!c.weapons?.length) c.weapons=[normWeapon({})];
+  sel.innerHTML=c.weapons.map((w,i)=>`<option value="${i}">${esc(weaponSummary(w))}</option>`).join("");
+  if(old) sel.value=old;
 }
-function renderLatest(){
-  const box = $("latest-card"); const ev = [...events].reverse().find(e=>e.type!=="system") || [...events].reverse()[0];
-  if(!ev){ box.className="panel latest"; return; }
-  box.className = `panel latest ${ev.pill || ev.type || ""}`;
-  let title = ev.actor || "Событие"; let body = ev.text || ev.summary || "";
-  if(ev.type==="roll") title = `${ev.actor} — ${ev.title} <span class="pill ${ev.pill||"good"}">${ev.resultLabel}</span>`;
-  if(ev.type==="damage") title = `${ev.actor} — ${ev.title} <span class="pill damage">Урон</span>`;
-  if(ev.type==="chat") title = `${ev.actor} пишет`;
-  box.innerHTML = `<div class="latest-label">Последний результат</div><div class="latest-title">${title}</div><div class="latest-body">${esc(body)}</div><div class="latest-meta">${esc(ev.time||"")} · ${esc(ev.type||"")}</div>`;
-}
-function compactEventLine(ev){
-  if(ev.type === "roll") return `${ev.actor || "—"} · ${ev.title} · ${ev.resultLabel}`;
-  if(ev.type === "damage") return `${ev.actor || "—"} · ${ev.title} · урон`;
-  if(ev.type === "resource") return `${ev.actor || "—"} · ресурсы`;
-  if(ev.type === "chat") return `${ev.actor || "—"} · запись`;
-  return `${ev.actor || "System"} · система`;
-}
-function renderLog(){
-  const el = $("log"); if(!el) return;
-  if(!events.length){ el.innerHTML = `<div class="event"><div class="event-body">Пока нет событий.</div></div>`; return; }
-  el.innerHTML = [...events].reverse().map(ev => {
-    const cls = `event ${ev.type||"system"} ${ev.pill||""}`;
-    const body = ev.text || ev.summary || "";
-    const title = compactEventLine(ev);
-    return `<div class="${cls}" title="Кликни/наведи, чтобы раскрыть детали"><div class="event-top"><span class="event-actor">${esc(title)}</span><span class="event-time">${esc(ev.time||"")}</span></div><div class="event-body">${esc(body)}</div></div>`;
-  }).join("");
-}
-function renderAll(){ syncControls(); renderLatest(); renderLog(); }
 
-function applyOtpDelta(c, delta){
-  const beforeOtp = c.otp, beforeOd = c.od;
-  if(delta > 0){
-    const total = c.otp + delta;
-    if(total <= c.otpMax) c.otp = total;
-    else { const extra = total - c.otpMax; c.otp = c.otpMax; if(extra >= 2) c.od += 1; }
-  } else if(delta < 0) c.otp = Math.max(0, c.otp + delta);
-  return { beforeOtp, afterOtp:c.otp, beforeOd, afterOd:c.od };
+function grantOtp(c,amount){
+  if(amount<=0) return {before:c.otp, after:c.otp, odBefore:c.od, odAfter:c.od, text:""};
+  const before=c.otp, odBefore=c.od, max=c.otpMax||3;
+  let total=c.otp+amount; let overflow=Math.max(0,total-max); c.otp=Math.min(max,total);
+  if(overflow>=2) c.od=clamp(c.od+1,0,9);
+  return {before,after:c.otp,odBefore,odAfter:c.od,text:`ОТП ${before}→${c.otp}${c.od!==odBefore?` · ОД ${odBefore}→${c.od}`:""}`};
 }
-function buildSkillResult(c, params){
-  const sk = c.skills[params.skillIndex] || c.skills[0]; const skDef = SKILLS.find(x=>x.n===sk.n) || SKILLS[0];
-  const attrDie = c[skDef.attr] || "d8"; const tn = params.tn; const forceZero = params.forceZero || !sk.dice?.length;
-  let resultLabel="", pill="good", otpDelta=0, summary="";
-  if(forceZero){
-    const r1 = rollDie(attrDie), r2 = rollDie(attrDie), best = Math.min(r1,r2);
-    if(r1===1 || r2===1){ resultLabel="Крит. промах"; pill="bad"; otpDelta=-2; }
-    else if(best>=tn){ resultLabel="Успех"; pill="good"; otpDelta=0; }
-    else { resultLabel="Провал"; pill="bad"; otpDelta=-1; }
-    const res = applyOtpDelta(c, otpDelta);
-    summary = `Зеро: ${attrDie} → ${r1}, ${r2}; худший ${best} | TN ${tn}\n${resultLabel}. ОТП ${res.beforeOtp}→${res.afterOtp}`;
-    return { title:sk.n, resultLabel, pill, summary, resources:res };
+function applyOtpDelta(c,delta){
+  const before=c.otp, odBefore=c.od;
+  c.otp=clamp(c.otp+delta,0,c.otpMax||3);
+  return {before,after:c.otp,odBefore,odAfter:c.od,text:`ОТП ${before}→${c.otp}`};
+}
+function buildSkillPool(base, net){
+  let pool=[...base];
+  if(net>0){
+    const largest=pool.length ? pool.reduce((a,b)=>sides(a)>=sides(b)?a:b,pool[0]) : null;
+    if(largest) for(let i=0;i<net;i++) pool.push(largest);
+  }else if(net<0){
+    for(let i=0;i<Math.abs(net);i++){
+      if(!pool.length) break;
+      let mx=0; pool.forEach((d,idx)=>{ if(sides(d)>sides(pool[mx])) mx=idx; });
+      pool.splice(mx,1);
+    }
   }
-  let pool = [...sk.dice]; const net = params.adv - params.dis;
-  if(net>0){ const maxDie = pool.reduce((a,b)=>sides(a)>=sides(b)?a:b,pool[0]); for(let i=0;i<net;i++) pool.push(maxDie); }
-  if(net<0){ for(let i=0;i<Math.abs(net);i++){ if(pool.length){ let mx=0; pool.forEach((d,idx)=>{ if(sides(d)>sides(pool[mx])) mx=idx; }); pool.splice(mx,1); } } }
-  if(!pool.length) return buildSkillResult(c, { ...params, forceZero:true });
-  const rolls = pool.map(d=>({die:d, value:rollDie(d)})); const values = rolls.map(r=>r.value); const best = Math.max(...values); const ones = values.filter(v=>v===1).length; const mags = rolls.filter(r=>r.value===sides(r.die)).length;
-  let success = best>=tn, insText="";
-  if(!success && params.insurance){
-    if(c.otp>0){ const ar = rollDie(attrDie); if(ar===1){ resultLabel="Крит. промах"; pill="bad"; otpDelta=-3; insText=`\nСтраховка ${attrDie} → 1: цена −1 и крит −2.`; } else if(ar>=tn){ success=true; resultLabel="Успех"; pill="good"; otpDelta=-1; insText=`\nСтраховка ${attrDie} → ${ar}: провал подхвачен, цена −1 ОТП.`; } else { resultLabel="Провал"; pill="bad"; otpDelta=-2; insText=`\nСтраховка ${attrDie} → ${ar}: не помогла, −2 ОТП всего.`; } }
-    else insText="\nСтраховка не сработала: нет ОТП.";
-  }
-  if(!resultLabel){
-    if(ones>=2){ resultLabel="Крит. промах"; pill="bad"; otpDelta=-2; }
-    else if(!success){ resultLabel="Провал"; pill="bad"; otpDelta=-1; }
-    else if(mags>=2){ resultLabel="Дубль-магнум"; pill="mag"; otpDelta=2; }
-    else if(mags===1){ resultLabel="Магнум"; pill="mag"; otpDelta=1; }
-    else if(ones>=1){ resultLabel="Осечка"; pill="bad"; otpDelta=-1; }
-    else if(best>=tn+3){ resultLabel="Превосходство"; pill="good"; otpDelta=1; }
-    else { resultLabel="Успех"; pill="good"; otpDelta=0; }
-  }
-  const res = applyOtpDelta(c, otpDelta);
-  summary = `${pool.join("+")} → ${values.join(", ")} | лучший ${best} | TN ${tn}\n${resultLabel}. ОТП ${res.beforeOtp}→${res.afterOtp}${res.afterOd!==res.beforeOd?`, ОД ${res.beforeOd}→${res.afterOd}`:""}${insText}`;
-  return { title:sk.n, resultLabel, pill, summary, resources:res };
+  return pool;
+}
+function pickAttrDie(skill){
+  const c=currentChar(); const sk=SKILLS.find(s=>s.n===skill?.n) || SKILLS[0];
+  return c[sk.attr] || "d8";
 }
 async function rollSkill(){
-  const c = currentChar(); const result = buildSkillResult(c, { skillIndex:Number($("skill-select").value)||0, tn:Number($("tn").value)||4, adv, dis, insurance:$("insurance").checked, forceZero:$("zero").checked });
-  saveLocal(); await publishActor(); renderAll();
-  await broadcastEvent({ id:uid(), type:"roll", actor:c.name, title:result.title, resultLabel:result.resultLabel, pill:result.pill, summary:result.summary, resourcesAfter:{otp:c.otp, od:c.od, sp:c.sp}, ts:Date.now(), time:nowTime() });
-}
-function buildDamage(c){
-  const w = normWeapon(c.weapons[Number($("weapon-select").value)||0]); const ammo = $("ammo-type").value; const targetSp = clamp($("target-sp").value,0,99);
-  let rolls=[], expl=[]; for(let i=0;i<w.dmgCount;i++){ const r=rollDie(w.dmgDie); rolls.push(r); if(ammo==="exp" && r===sides(w.dmgDie)) expl.push(rollDie(w.dmgDie)); }
-  const raw = rolls.reduce((a,b)=>a+b,0) + expl.reduce((a,b)=>a+b,0); const effSp = ammo==="ap" ? Math.max(0,targetSp-2) : targetSp; const total = Math.max(0, raw-effSp);
-  const ammoName = ammo==="ap"?"бронебойный":ammo==="exp"?"экспансивный":"лёгкий";
-  const expText = expl.length ? ` + взрыв ${expl.join(", ")}` : "";
-  return { title:w.name, summary:`${w.dmgCount}${w.dmgDie} (${ammoName}) → ${rolls.join(", ")}${expText}\nСумма ${raw} − SP ${effSp}${ammo==="ap"?` (из ${targetSp})`:""} = итоговый урон ${total}`, total };
+  const c=currentChar(), i=Number($("skill-select").value)||0, sk=c.skills[i], tn=Number($("tn").value)||4;
+  const forceZero=$("zero").checked, useIns=$("insurance").checked, net=adv-dis;
+  const attrDie=pickAttrDie(sk);
+  let baseDice=[...(sk?.dice||[])].filter(d=>DICE.includes(d));
+  let pool=forceZero ? [] : buildSkillPool(baseDice,net);
+  let isZero=forceZero || pool.length===0;
+  let rolls=[], attrRolls=[], best=0, success=false, result="ПРОВАЛ", label="Провал", pill="fail", summary="", otpChange=null;
+  if(isZero){
+    const r1=rollDie(attrDie), r2=rollDie(attrDie); attrRolls=[r1,r2]; best=Math.min(r1,r2); success=best>=tn;
+    if(attrRolls.includes(1)){ result="КРИТ"; label="Крит. промах"; pill="crit"; otpChange=applyOtpDelta(c,-2); summary=`Зеро ${attrDie}: ${r1}, ${r2} → ${best} | TN ${tn}. Крит. промах. ${otpChange.text}`; }
+    else if(success){ result="УСПЕХ"; label="Успех"; pill="success"; summary=`Зеро ${attrDie}: ${r1}, ${r2} → ${best} | TN ${tn}. Успех без ОТП.`; }
+    else{ result="ПРОВАЛ"; label="Провал"; pill="fail"; otpChange=applyOtpDelta(c,-1); summary=`Зеро ${attrDie}: ${r1}, ${r2} → ${best} | TN ${tn}. Провал. ${otpChange.text}`; }
+  }else{
+    rolls=pool.map(d=>({die:d,val:rollDie(d)})); const vals=rolls.map(r=>r.val); best=Math.max(...vals); success=best>=tn;
+    const ones=vals.filter(v=>v===1).length; const mags=rolls.filter(r=>r.val===sides(r.die)).length;
+    let insText="";
+    if(!success && useIns){
+      if(c.otp>0){
+        const cost=applyOtpDelta(c,-1); const av=rollDie(attrDie); attrRolls=[av]; insText=` · Страховка ${attrDie}: ${av} (${cost.text})`;
+        if(av===1){ result="КРИТ"; label="Крит. промах"; pill="crit"; const ch=applyOtpDelta(c,-2); summary=`${sk.n}: ${vals.join(", ")} | TN ${tn}${insText}. Крит страховки. ${ch.text}`; success=false; }
+        else if(av>=tn){ result="УСПЕХ"; label="Успех"; pill="success"; summary=`${sk.n}: ${vals.join(", ")} | TN ${tn}${insText}. Провал подхвачен атрибутом.`; success=true; }
+      }else insText=" · Страховка не сработала: нет ОТП";
+    }
+    if(!summary){
+      if(ones>=2){ result="КРИТ"; label="Крит. промах"; pill="crit"; otpChange=applyOtpDelta(c,-2); summary=`${sk.n}: ${vals.join(", ")} | TN ${tn}. Змеиные глаза. ${otpChange.text}`; }
+      else if(!success){ result="ПРОВАЛ"; label="Провал"; pill="fail"; otpChange=applyOtpDelta(c,-1); summary=`${sk.n}: ${vals.join(", ")} | TN ${tn}. Провал${insText}. ${otpChange.text}`; }
+      else if(mags>=2){ result="ДУБЛЬ-МАГНУМ"; label="Дубль-магнум"; pill="double"; otpChange=grantOtp(c,2); summary=`${sk.n}: ${vals.join(", ")} | TN ${tn}. Дубль-магнум. ${otpChange.text}`; }
+      else if(mags===1){ result="МАГНУМ"; label="Магнум"; pill="magnum"; otpChange=grantOtp(c,1); summary=`${sk.n}: ${vals.join(", ")} | TN ${tn}. Магнум. ${otpChange.text}`; }
+      else if(ones>=1){ result="ОСЕЧКА"; label="Осечка"; pill="bad"; otpChange=applyOtpDelta(c,-1); summary=`${sk.n}: ${vals.join(", ")} | TN ${tn}. Успех с осечкой. ${otpChange.text}`; }
+      else if(best>=tn+3){ result="ПРЕВОСХОДСТВО"; label="Превосходство"; pill="success"; otpChange=grantOtp(c,1); summary=`${sk.n}: ${vals.join(", ")} | TN ${tn}. Превосходство. ${otpChange.text}`; }
+      else{ result="УСПЕХ"; label="Успех"; pill="success"; summary=`${sk.n}: ${vals.join(", ")} | TN ${tn}. Действие выполнено.`; }
+    }
+  }
+  saveLocal(); renderAll(); await saveRoomState();
+  await broadcastEvent({id:uid(),type:"roll",actor:c.name,title:sk?.n||"Проверка",result,resultLabel:label,pill,summary,ts:Date.now(),time:nowTime()});
 }
 async function rollDamage(){
-  const c = currentChar(); const d = buildDamage(c);
-  await broadcastEvent({ id:uid(), type:"damage", actor:c.name, title:d.title, pill:"damage", summary:d.summary, resourcesAfter:{otp:c.otp, od:c.od, sp:c.sp}, ts:Date.now(), time:nowTime() });
+  const c=currentChar(), w=normWeapon(c.weapons[Number($("weapon-select").value)||0]), ammo=$("ammo-type").value, targetSp=clamp($("target-sp").value,0,99);
+  const rolls=[], explosions=[]; let total=0;
+  for(let i=0;i<w.dmgCount;i++){
+    const v=rollDie(w.dmgDie); rolls.push(v); total+=v;
+    if(ammo==="exp" && v===sides(w.dmgDie)){ const ex=rollDie(w.dmgDie); explosions.push(ex); total+=ex; }
+  }
+  let effSp=targetSp; if(ammo==="ap") effSp=Math.max(0,targetSp-2);
+  const final=Math.max(0,total-effSp);
+  const ammoLabel={light:"Лёгкий",ap:"Бронебойный",exp:"Экспансивный"}[ammo];
+  const exText=explosions.length?` + взрыв ${explosions.join(", ")}`:"";
+  const spText=ammo==="ap"?`SP ${targetSp}→${effSp}`:`SP ${effSp}`;
+  const summary=`${w.name}: ${w.dmgCount}${w.dmgDie} → ${rolls.join(", ")}${exText}; ${spText}; итог ${final}`;
+  await broadcastEvent({id:uid(),type:"damage",actor:c.name,title:`Урон · ${ammoLabel}`,pill:"damage",summary,ts:Date.now(),time:nowTime()});
 }
-async function changeResource(key, delta){
-  const c = currentChar(); const before = { otp:c.otp, od:c.od, sp:c.sp };
-  if(key==="otp") c.otp = clamp(c.otp+delta,0,c.otpMax); if(key==="od") c.od=clamp(c.od+delta,0,9); if(key==="sp") c.sp=clamp(c.sp+delta,0,99);
-  saveLocal(); await publishActor(); renderAll();
-  await broadcastEvent({ id:uid(), type:"resource", actor:c.name, pill:"info", summary:`ОТП ${before.otp}→${c.otp} · ОД ${before.od}→${c.od} · SP ${before.sp}→${c.sp}`, resourcesAfter:{otp:c.otp, od:c.od, sp:c.sp}, ts:Date.now(), time:nowTime() });
+
+function renderLatest(){
+  const ev=[...events].reverse().find(e=>e.type!=="system") || [...events].reverse()[0];
+  const box=$("latest-card");
+  if(!ev){ box.className="last-card"; box.innerHTML='<div class="last-label">Последний результат</div><div class="last-title">Нет событий</div><div class="last-body">Броски и урон появятся здесь у всех игроков с открытым HUD.</div>'; return; }
+  box.className=`last-card ${ev.pill||ev.type||""}`;
+  let title=ev.actor||"Событие";
+  if(ev.type==="roll") title=`<span class="result">${esc(ev.resultLabel)}</span>`;
+  if(ev.type==="damage") title=`УРОН`;
+  if(ev.type==="chat"||ev.type==="scene") title=`ФАКТ / ЗАПИСЬ`;
+  box.innerHTML=`<div class="last-label">${esc(ev.actor||"Scarlet")}</div><div class="last-title">${title}</div><div class="last-body">${esc(ev.summary||ev.text||"")}</div><div class="last-meta">${esc(ev.time||"")}</div>`;
 }
-function exportLog(){
-  const lines = [...events].map(e => `[${e.time||""}] ${e.actor||"—"}: ${e.type==="roll"?`${e.title} — ${e.resultLabel}. `:""}${e.summary||e.text||""}`).join("\n\n");
-  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([lines],{type:"text/plain;charset=utf-8"})); a.download=`scarlet_log_${new Date().toISOString().slice(0,10)}.txt`; a.click(); URL.revokeObjectURL(a.href);
+function renderLog(){
+  const log=$("log"); if(!log) return;
+  log.innerHTML=[...events].reverse().map(ev=>`<div class="log-item ${esc(ev.pill||"")}"><div class="log-top"><span class="log-title">${esc(logTitle(ev))}</span><span class="log-time">${esc(ev.time||"")}</span></div><div class="log-text">${esc(ev.summary||ev.text||"")}</div></div>`).join("") || '<div class="log-item"><div class="log-text">Журнал пуст.</div></div>';
 }
-async function newTurn(){
-  const c = currentChar();
-  const before = { otp:c.otp, od:c.od, sp:c.sp };
-  c.od = 3;
-  saveLocal(); await publishActor(); renderAll();
-  await broadcastEvent({ id:uid(), type:"resource", actor:c.name, pill:"info", summary:`Новый ход. ОД ${before.od}→${c.od}. ОТП ${before.otp}/${c.otpMax}. SP ${before.sp}.`, resourcesAfter:{otp:c.otp, od:c.od, sp:c.sp}, ts:Date.now(), time:nowTime() });
+function logTitle(ev){
+  if(ev.type==="roll") return `${ev.actor} · ${ev.title} · ${ev.resultLabel}`;
+  if(ev.type==="damage") return `${ev.actor} · ${ev.title}`;
+  if(ev.type==="chat") return `${ev.actor} · запись`;
+  if(ev.type==="scene") return `Сцена · ${ev.actor}`;
+  return ev.actor || "System";
+}
+function toggleJournal(open){
+  const j=$("journal"); const next = typeof open==="boolean" ? open : !j.classList.contains("open");
+  j.classList.toggle("open",next); j.setAttribute("aria-hidden", String(!next));
+}
+function addChat(text,type="chat"){
+  const t=String(text||"").trim(); if(!t) return;
+  broadcastEvent({id:uid(),type,actor:nowActor(),text:t,summary:t,pill:"info",ts:Date.now(),time:nowTime()});
+}
+
+function importCharacter(data,fileName=""){
+  const guessed=String(data?.name||"").trim() || String(fileName||"").replace(/\.json$/i,"").replace(/^scarlet[_-]?/i,"").replace(/[_-]+/g," ").trim() || "Оперативник";
+  const c=defaultChar(guessed);
+  c.attrBody=DICE.includes(data?.attrBody)?data.attrBody:"d8"; c.attrReact=DICE.includes(data?.attrReact)?data.attrReact:"d8"; c.attrMind=DICE.includes(data?.attrMind)?data.attrMind:"d8";
+  c.otp=clamp(data?.otp,0,data?.otpMax||3); c.otpMax=clamp(data?.otpMax||3,1,6);
+  c.od=Array.isArray(data?.od)?data.od.filter(Boolean).length:clamp(data?.od??3,0,9); if(c.od===0 && data?.od===undefined) c.od=3;
+  c.sp=clamp(data?.sp,0,99);
+  c.injuries={light:data?.injLight||[false,false,false,false], med:data?.injMedium||[false,false], heavy:data?.injHeavy||[false], crit:data?.injCrit||[false]};
+  c.skills=SKILLS.map((sk,i)=>{ const saved=Array.isArray(data?.skills)?(data.skills.find(x=>x?.n===sk.n)||data.skills[i]):null; const dice=Array.isArray(saved?.dice)?saved.dice.filter(d=>DICE.includes(d)).slice(0,2):[]; return {n:sk.n,dice}; });
+  c.weapons=Array.isArray(data?.weapons)&&data.weapons.length?data.weapons.map(normWeapon):[normWeapon({})];
+  const existing=Object.values(state.chars); const onlyBlank=existing.length===1 && existing[0].name==="Оперативник" && !existing[0].skills.some(s=>s.dice?.length);
+  if(onlyBlank) delete state.chars[existing[0].id];
+  state.chars[c.id]=c; state.activeId=c.id; saveLocal(); renderAll(); saveRoomState();
+  broadcastEvent({id:uid(),type:"system",actor:"System",text:`Загружен персонаж: ${c.name}`,summary:`Загружен персонаж: ${c.name}`,ts:Date.now(),time:nowTime()});
+}
+function openFullSheet(){
+  const c=currentChar();
+  const html=`<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>${esc(c.name)} — Scarlet Sheet</title>
+  <style>body{margin:0;background:#0f1014;color:#eef1f7;font:15px Inter,system-ui,sans-serif;padding:24px} .card{max-width:980px;margin:auto;background:#171a20;border:1px solid #303642;border-radius:14px;padding:22px} h1{margin:0 0 10px;color:#ff6b6b}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.box{background:#20242d;border:1px solid #303642;border-radius:10px;padding:12px}.muted{color:#9aa4b7}.mono{font-family:monospace}</style></head><body><div class="card"><h1>${esc(c.name)}</h1><p class="muted">Локальный просмотр персонажа из Owlbear HUD.</p><div class="grid"><div class="box">ОТП: <b>${c.otp}/${c.otpMax}</b></div><div class="box">ОД: <b>${c.od}</b></div><div class="box">SP: <b>${c.sp}</b></div></div><h2>Навыки</h2><pre class="mono">${esc(c.skills.map(s=>`${s.n}: ${s.dice?.join("+")||"Зеро"}`).join("\n"))}</pre><h2>Оружие</h2><pre class="mono">${esc(c.weapons.map(w=>weaponSummary(w)).join("\n"))}</pre></div></body></html>`;
+  const blob=new Blob([html],{type:"text/html"}); window.open(URL.createObjectURL(blob),"_blank");
 }
 
 function bind(){
-  $("import-btn").onclick = () => $("file-input").click();
-  $("open-sheet-btn").onclick = () => {
-    saveLocal();
-    const c = currentChar();
-    const payload = btoa(unescape(encodeURIComponent(JSON.stringify(c))));
-    window.open(`fullsheet.html?v=130#${payload}`, "_blank");
-  };
-  $("file-input").onchange = e => { const file=e.target.files?.[0]; if(!file) return; const r=new FileReader(); r.onload=ev=>{ try{ importCharacter(JSON.parse(ev.target.result), file.name); }catch(err){ alert("Не удалось прочитать JSON: "+err.message); } }; r.readAsText(file); e.target.value=""; };
-  $("new-char-btn").onclick = async () => { const c=defaultChar("Оперативник"); state.chars[c.id]=c; state.activeId=c.id; saveLocal(); renderAll(); await publishActor(); };
-  $("new-turn-btn").onclick = newTurn;
-  $("char-select").onchange = () => { state.activeId=$("char-select").value; saveLocal(); renderAll(); publishActor(); };
-  $("char-name").onchange = async () => { const c=currentChar(); c.name=$("char-name").value.trim()||"Оперативник"; saveLocal(); renderAll(); await publishActor(); };
-  $("skill-select").onchange = renderDiceEditor;
-  $("die-1").onchange = applyDiceEditor;
-  $("die-2").onchange = applyDiceEditor;
-  document.querySelectorAll("[data-res]").forEach(b => b.onclick = () => changeResource(b.dataset.res, Number(b.dataset.delta)));
-  document.querySelectorAll("[data-step]").forEach(b => b.onclick = () => { const key=b.dataset.step, delta=Number(b.dataset.delta); if(key==="adv") adv=clamp(adv+delta,0,6); if(key==="dis") dis=clamp(dis+delta,0,6); $("adv-val").textContent=adv; $("dis-val").textContent=dis; });
-  $("roll-skill-btn").onclick = rollSkill; $("roll-damage-btn").onclick = rollDamage;
-  $("chat-form").onsubmit = async e => { e.preventDefault(); const txt=$("chat-input").value.trim(); if(!txt) return; $("chat-input").value=""; const c=currentChar(); await broadcastEvent({ id:uid(), type:"chat", actor:c.name, pill:"info", text:txt, resourcesAfter:{otp:c.otp, od:c.od, sp:c.sp}, ts:Date.now(), time:nowTime() }); };
-  $("toggle-log-btn").onclick = toggleLog;
-  $("scene-form").onsubmit = async e => {
-    e.preventDefault();
-    const txt=$("scene-input").value.trim();
-    if(!txt) return;
-    $("scene-input").value="";
-    const c=currentChar();
-    await broadcastEvent({ id:uid(), type:"chat", actor:c.name, pill:"info", text:txt, resourcesAfter:{otp:c.otp, od:c.od, sp:c.sp}, ts:Date.now(), time:nowTime() });
-  };
-  $("export-log-btn").onclick = exportLog;
-  $("clear-local-btn").onclick = () => { if(confirm("Очистить локальный журнал? У других игроков он не удалится.")){ events=[]; seen=new Set(); saveLocal(); renderAll(); } };
-  document.addEventListener("keydown", e => {
-    const tag = (document.activeElement?.tagName || "").toLowerCase();
-    const typing = ["input","textarea","select"].includes(tag);
-    const k = e.key.toLowerCase();
-    if(k === "j" && (e.ctrlKey || !typing)){ e.preventDefault(); toggleLog(); }
-    if(e.key === "Enter" && e.ctrlKey){ e.preventDefault(); rollSkill(); }
-    if(e.key === "Enter" && e.shiftKey){ e.preventDefault(); rollDamage(); }
-    if(e.key === "Escape" && ui.logOpen){ e.preventDefault(); toggleLog(); }
+  $("char-select").onchange=e=>{state.activeId=e.target.value; saveLocal(); renderAll(); saveRoomState();};
+  $("char-name").onchange=e=>{currentChar().name=e.target.value.trim()||"Оперативник"; saveLocal(); renderAll(); saveRoomState();};
+  document.querySelectorAll("[data-res='sp']").forEach(b=>b.onclick=()=>adjustSp(Number(b.dataset.delta)));
+  document.querySelectorAll("[data-step]").forEach(b=>b.onclick=()=>{ const key=b.dataset.step, d=Number(b.dataset.delta); if(key==="adv")adv=clamp(adv+d,0,9); if(key==="dis")dis=clamp(dis+d,0,9); renderAll(); });
+  $("skill-select").onchange=()=>renderDiceEditor(); $("die-1").onchange=applyDiceEditor; $("die-2").onchange=applyDiceEditor;
+  $("roll-skill-btn").onclick=rollSkill; $("roll-damage-btn").onclick=rollDamage;
+  $("new-turn-btn").onclick=()=>{ currentChar().od=3; saveLocal(); renderAll(); saveRoomState(); };
+  $("toggle-log-btn").onclick=()=>toggleJournal(); $("close-log-btn").onclick=()=>toggleJournal(false);
+  $("chat-form").onsubmit=e=>{e.preventDefault(); addChat($("chat-input").value,"chat"); $("chat-input").value="";};
+  $("scene-form").onsubmit=e=>{e.preventDefault(); addChat($("scene-input").value,"scene"); $("scene-input").value="";};
+  $("import-btn").onclick=()=>$("file-input").click();
+  $("file-input").onchange=e=>{ const file=e.target.files?.[0]; if(!file)return; const r=new FileReader(); r.onload=ev=>{try{importCharacter(JSON.parse(ev.target.result),file.name)}catch(err){alert("Ошибка JSON: "+err.message)}}; r.readAsText(file); e.target.value=""; };
+  $("open-sheet-btn").onclick=openFullSheet;
+  $("export-log-btn").onclick=()=>{ const txt=[...events].map(ev=>`[${ev.time}] ${logTitle(ev)} — ${ev.summary||ev.text||""}`).join("\n"); const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([txt],{type:"text/plain;charset=utf-8"})); a.download="scarlet_log.txt"; a.click(); };
+  $("clear-local-btn").onclick=()=>{ if(confirm("Очистить локальный журнал?")){events=[];seen.clear();saveLocal();renderAll();} };
+  document.addEventListener("keydown",e=>{
+    const tag=document.activeElement?.tagName; const typing=["INPUT","TEXTAREA","SELECT"].includes(tag);
+    if(e.ctrlKey && e.key==="Enter"){ e.preventDefault(); rollSkill(); }
+    if(e.shiftKey && e.key==="Enter"){ e.preventDefault(); rollDamage(); }
+    if((e.ctrlKey && e.key.toLowerCase()==="j") || (!typing && e.key.toLowerCase()==="j")){ e.preventDefault(); toggleJournal(); }
+    if(e.key==="Escape") toggleJournal(false);
   });
 }
-
-loadLocal(); loadUi(); if(!Object.keys(state.chars).length){ const c=defaultChar(); state.chars[c.id]=c; state.activeId=c.id; }
-bind(); applyUi(); renderAll(); loadSdk();
+async function init(){ loadLocal(); bind(); renderAll(); await loadSdk(); renderAll(); }
+init();
