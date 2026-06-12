@@ -3,137 +3,106 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Scarlet Frontier HUD v0.14</title>
+  <title>Scarlet Frontier HUD v0.15</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=140" />
+  <link rel="stylesheet" href="style.css?v=150" />
 </head>
 <body>
-  <main class="hud">
-    <section class="left module">
-      <div class="brandline">
-        <div>
-          <div class="kicker">SCARLET FRONTIER</div>
-          <div class="title">PLAYER HUD <span>v0.14</span></div>
-        </div>
-        <div class="net" id="net-status">local</div>
+  <main class="hud-shell">
+    <header class="topbar panel">
+      <div class="brandpack">
+        <div class="kicker">SCARLET FRONTIER</div>
+        <div class="title">PLAYER HUD <span>v0.15</span></div>
       </div>
-
-      <div class="charline">
-        <label class="select-wrap grow">
-          <span>Оперативник</span>
-          <select id="char-select"></select>
-        </label>
-        <input class="name-input" id="char-name" placeholder="Имя" />
+      <div class="damage-track" title="Трек урона / ранений">
+        <span class="track-label">Урон</span>
+        <div id="damage-pips" class="damage-pips"></div>
       </div>
-
-      <div class="resources">
-        <div class="track otp">
-          <div class="track-head"><span>ОТП</span><b id="otp-val">0</b><em id="otp-max">/3</em></div>
-          <div class="pips round-pips" id="otp-pips"></div>
-        </div>
-        <div class="track od">
-          <div class="track-head"><span>ОД</span><b id="od-val">3</b></div>
-          <div class="pips square-pips" id="od-pips"></div>
-        </div>
-        <div class="sp-chip">
-          <span>SP</span>
-          <button data-res="sp" data-delta="-1">−</button>
-          <b id="sp-val">0</b>
-          <button data-res="sp" data-delta="1">+</button>
-        </div>
-      </div>
-    </section>
-
-    <section class="center module">
-      <div class="injury-strip" title="Трек ранений">
-        <div class="inj-group light"><span>Л</span><div id="inj-light" class="inj-pips"></div></div>
-        <div class="inj-group med"><span>С</span><div id="inj-med" class="inj-pips"></div></div>
-        <div class="inj-group heavy"><span>Т</span><div id="inj-heavy" class="inj-pips"></div></div>
-        <div class="inj-group crit"><span>К</span><div id="inj-crit" class="inj-pips"></div></div>
-      </div>
-
-      <div class="rollbar">
-        <label class="field skill">
-          <span>Проверка</span>
-          <select id="skill-select"></select>
-        </label>
-        <label class="field dice">
-          <span>Кость 1</span>
-          <select id="die-1"></select>
-        </label>
-        <label class="field dice">
-          <span>Кость 2</span>
-          <select id="die-2"></select>
-        </label>
-        <label class="field tn">
-          <span>TN</span>
-          <select id="tn"><option>3</option><option selected>4</option><option>5</option><option>6</option><option>7</option></select>
-        </label>
-        <div class="mini-step adv"><span>+К</span><button data-step="adv" data-delta="-1">−</button><b id="adv-val">0</b><button data-step="adv" data-delta="1">+</button></div>
-        <div class="mini-step dis"><span>−К</span><button data-step="dis" data-delta="-1">−</button><b id="dis-val">0</b><button data-step="dis" data-delta="1">+</button></div>
-        <label class="tiny-check"><input id="insurance" type="checkbox"><span>Страх.</span></label>
-        <label class="tiny-check"><input id="zero" type="checkbox"><span>Зеро</span></label>
-        <button class="big-btn" id="roll-skill-btn">БРОСОК</button>
-      </div>
-
-      <div class="damagebar">
-        <label class="field weapon">
-          <span>Урон</span>
-          <select id="weapon-select"></select>
-        </label>
-        <label class="field ammo">
-          <span>Боеприпас</span>
-          <select id="ammo-type"><option value="light">Лёгкий</option><option value="ap">Бронебойный</option><option value="exp">Экспансивный</option></select>
-        </label>
-        <label class="field tsp">
-          <span>SP цели</span>
-          <input id="target-sp" type="number" min="0" max="99" value="0" />
-        </label>
-        <button class="damage-btn" id="roll-damage-btn">УРОН</button>
-        <form class="quick-note" id="chat-form">
-          <input id="chat-input" placeholder="Факт / реплика / заметка…" autocomplete="off" />
-          <button type="submit">Запись</button>
-        </form>
-      </div>
-    </section>
-
-    <section class="right module">
-      <div class="last-card" id="latest-card">
-        <div class="last-label">Последний результат</div>
-        <div class="last-title">Нет событий</div>
-        <div class="last-body">Броски и урон появятся здесь у всех игроков с открытым HUD.</div>
-      </div>
-      <div class="toolrow">
-        <button id="new-turn-btn">Новый ход</button>
+      <div class="top-actions">
+        <button id="new-turn-btn">Ход</button>
         <button id="import-btn">JSON</button>
         <button id="open-sheet-btn">Лист</button>
         <button id="toggle-log-btn">Журнал</button>
+        <div class="net" id="net-status">local</div>
         <input id="file-input" type="file" accept=".json,application/json" hidden />
       </div>
+    </header>
+
+    <section class="hud-grid">
+      <section class="left panel">
+        <div class="charline">
+          <label class="field grow">
+            <span>Персонаж</span>
+            <select id="char-select"></select>
+          </label>
+          <label class="field grow">
+            <span>Имя</span>
+            <input id="char-name" class="name-input" placeholder="Имя" />
+          </label>
+        </div>
+        <div class="resources">
+          <div class="track otp">
+            <div class="track-head"><span>ОТП</span><b id="otp-val">0</b><em id="otp-max">/3</em></div>
+            <div class="pips round-pips" id="otp-pips"></div>
+          </div>
+          <div class="track od">
+            <div class="track-head"><span>ОД</span><b id="od-val">3</b><em id="od-bonus"></em></div>
+            <div class="pips square-pips" id="od-pips"></div>
+          </div>
+          <div class="sp-chip">
+            <span>SP</span>
+            <button data-res="sp" data-delta="-1">−</button>
+            <b id="sp-val">0</b>
+            <button data-res="sp" data-delta="1">+</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="center panel">
+        <div class="rollbar">
+          <label class="field skill">
+            <span>Проверка</span>
+            <select id="skill-select"></select>
+          </label>
+          <label class="field dice"><span>Кость 1</span><select id="die-1"></select></label>
+          <label class="field dice"><span>Кость 2</span><select id="die-2"></select></label>
+          <label class="field tn"><span>TN</span><select id="tn"><option>3</option><option selected>4</option><option>5</option><option>6</option><option>7</option></select></label>
+          <div class="mini-step adv"><span>+К</span><button data-step="adv" data-delta="-1">−</button><b id="adv-val">0</b><button data-step="adv" data-delta="1">+</button></div>
+          <div class="mini-step dis"><span>−К</span><button data-step="dis" data-delta="-1">−</button><b id="dis-val">0</b><button data-step="dis" data-delta="1">+</button></div>
+          <label class="tiny-check"><input id="insurance" type="checkbox"><span>Страх.</span></label>
+          <label class="tiny-check"><input id="zero" type="checkbox"><span>Зеро</span></label>
+          <button class="big-btn" id="roll-skill-btn">БРОСОК</button>
+        </div>
+        <div class="damagebar">
+          <label class="field weapon"><span>Урон</span><select id="weapon-select"></select></label>
+          <label class="field ammo"><span>Боеприпас</span><select id="ammo-type"><option value="light">Лёгкий</option><option value="ap">Бронебойный</option><option value="exp">Экспансивный</option></select></label>
+          <label class="field tsp"><span>SP цели</span><input id="target-sp" type="number" min="0" max="99" value="0" /></label>
+          <button class="damage-btn" id="roll-damage-btn">УРОН</button>
+          <form class="quick-note" id="chat-form"><input id="chat-input" placeholder="Факт / реплика…" autocomplete="off" /><button type="submit">Запись</button></form>
+        </div>
+      </section>
+
+      <section class="right panel">
+        <div class="last-card" id="latest-card">
+          <div class="last-label">Последний результат</div>
+          <div class="last-title">Нет событий</div>
+          <div class="last-body">Броски и урон появятся здесь у всех игроков с открытым HUD.</div>
+        </div>
+      </section>
     </section>
   </main>
 
   <aside class="journal" id="journal" aria-hidden="true">
     <div class="journal-head">
-      <div>
-        <div class="kicker">ROOM FEED</div>
-        <b>Журнал комнаты</b>
-      </div>
-      <div class="journal-actions">
-        <button id="export-log-btn">.txt</button>
-        <button id="clear-local-btn">Очистить</button>
-        <button id="close-log-btn">×</button>
-      </div>
+      <div><div class="kicker">ROOM FEED</div><b>Журнал комнаты</b></div>
+      <div class="journal-actions"><button id="export-log-btn">.txt</button><button id="clear-local-btn">Очистить</button><button id="close-log-btn">×</button></div>
     </div>
-    <form class="scene-form" id="scene-form">
-      <input id="scene-input" placeholder="Факт сцены, описание, решение ведущего…" autocomplete="off">
-      <button type="submit">Добавить</button>
-    </form>
+    <form class="scene-form" id="scene-form"><input id="scene-input" placeholder="Факт сцены, описание, решение ведущего…" autocomplete="off"><button type="submit">Добавить</button></form>
     <div class="log" id="log"></div>
   </aside>
 
   <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
-  <script type="module" src="main.js?v=140"></script>
+  <script type="module" src="main.js?v=150"></script>
 </body>
 </html>
