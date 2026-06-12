@@ -1,15 +1,15 @@
 {
   "name": "Scarlet Frontier HUD",
-  "version": "0.15.13",
+  "version": "0.15.14",
   "manifest_version": 1,
   "description": "Игровой HUD и броски Scarlet Frontier.",
   "author": "Scarlet Frontier",
-  "icon": "https://svenswanrig-netizen.github.io/Scarlet_Log/icon.svg?v=1513",
+  "icon": "https://svenswanrig-netizen.github.io/Scarlet_Log/icon.svg?v=1514",
   "action": {
     "title": "Scarlet HUD",
-    "icon": "https://svenswanrig-netizen.github.io/Scarlet_Log/icon.svg?v=1513",
-    "popover": "https://svenswanrig-netizen.github.io/Scarlet_Log/index.html?v=1513",
+    "icon": "https://svenswanrig-netizen.github.io/Scarlet_Log/icon.svg?v=1514",
+    "popover": "https://svenswanrig-netizen.github.io/Scarlet_Log/index.html?v=1514",
     "height": 182,
-    "width": 1760
+    "width": 1780
   }
 }

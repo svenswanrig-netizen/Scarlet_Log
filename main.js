@@ -1,7 +1,7 @@
-const VERSION="1513";
-const CHANNEL="scarlet-frontier-hud-v15-13";
-const META_KEY="com.scarletfrontier.hud/v15.13";
-const STORAGE_KEY="scarlet-hud-v15-13";
+const VERSION="1514";
+const CHANNEL="scarlet-frontier-hud-v15-14";
+const META_KEY="com.scarletfrontier.hud/v15.14";
+const STORAGE_KEY="scarlet-hud-v15-14";
 const MAX_EVENTS=80;
 const SKILLS=[
   {n:"Насилие",attr:"attrBody"},{n:"Атлетика",attr:"attrBody"},{n:"Стойкость",attr:"attrBody"},{n:"Выживание",attr:"attrBody"},
@@ -90,7 +90,7 @@ function receiveEvent(ev){ addEventLocal(ev,true,true); }
 function addEventLocal(ev,persist=true,flash=false){
   if(!ev?.id || seen.has(ev.id)) return;
   seen.add(ev.id); events.push(ev); events=events.slice(-MAX_EVENTS);
-  renderAll(); if(flash && ["roll","damage","chat","scene"].includes(ev.type)) showToast(ev); if(persist) saveLocal();
+  renderAll(); if(persist) saveLocal();
 }
 function showToast(ev){
   const box=$("toast-stack"); if(!box) return;
