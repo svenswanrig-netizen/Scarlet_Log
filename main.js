@@ -1,7 +1,7 @@
-const VERSION="1516";
-const CHANNEL="scarlet-frontier-hud-v15-16";
-const META_KEY="com.scarletfrontier.hud/v15.16";
-const STORAGE_KEY="scarlet-hud-v15-16";
+const VERSION="1517";
+const CHANNEL="scarlet-frontier-hud-v15-17";
+const META_KEY="com.scarletfrontier.hud/v15.17";
+const STORAGE_KEY="scarlet-hud-v15-17";
 const MAX_EVENTS=80;
 const SKILLS=[
   {n:"Насилие",attr:"attrBody"},{n:"Атлетика",attr:"attrBody"},{n:"Стойкость",attr:"attrBody"},{n:"Выживание",attr:"attrBody"},
@@ -191,14 +191,23 @@ async function rollDamage(){
 }
 
 
+function getLatestResultEvent(){
+  const rev=[...events].reverse();
+  return rev.find(e=>["roll","damage"].includes(e.type)) || rev.find(e=>e.type!=="system") || rev[0];
+}
+
 function renderRecentFeed(){
   const box=$("recent-feed"); if(!box) return;
-  const items=[...events].reverse().filter(ev=>["roll","damage","chat","scene"].includes(ev.type) || (ev.type==="system" && ev.title==="Состояние")).slice(0,4);
-  box.innerHTML=items.map(ev=>`<div class="feed-row"><span class="t">${esc(ev.time||"")}</span><b>${esc(ev.actor||"Система")}</b> — ${esc(ev.resultLabel || ev.title || ev.type)}<br>${esc(ev.summary||ev.text||"")}</div>`).join("") || '<div class="feed-row">Пока нет записей.</div>';
+  const latest=getLatestResultEvent();
+  const items=[...events].reverse()
+    .filter(ev=>ev?.id !== latest?.id)
+    .filter(ev=>["roll","damage","chat","scene"].includes(ev.type) || (ev.type==="system" && ev.title==="Состояние"))
+    .slice(0,4);
+  box.innerHTML=items.map(ev=>`<div class="feed-row"><span class="t">${esc(ev.time||"")}</span><b>${esc(ev.actor||"Система")}</b> — ${esc(ev.resultLabel || ev.title || ev.type)}<br>${esc(ev.summary||ev.text||"")}</div>`).join("") || '<div class="feed-row">Предыдущих записей пока нет.</div>';
 }
 
 function renderLatest(){
-  const rev=[...events].reverse(); const ev=rev.find(e=>["roll","damage"].includes(e.type)) || rev.find(e=>e.type!=="system") || rev[0]; const box=$("latest-card");
+  const ev=getLatestResultEvent(); const box=$("latest-card");
   if(!ev){ box.className="last-card"; box.innerHTML='<div class="last-label">Последний результат</div><div class="last-title">Нет событий</div><div class="last-body">Броски и урон появятся здесь у всех игроков с открытым HUD.</div>'; return; }
   box.className=`last-card ${ev.pill||ev.type||""}`;
   let title=ev.actor||"Событие"; if(ev.type==="roll") title=`${esc(ev.actor)} — <span class="result">${esc(ev.resultLabel)}</span>`; if(ev.type==="damage") title=`${esc(ev.actor)} — УРОН`; if(ev.type==="chat"||ev.type==="scene") title=`${esc(ev.actor)} — ЗАПИСЬ`;
