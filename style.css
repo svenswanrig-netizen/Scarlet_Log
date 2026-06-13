@@ -839,3 +839,91 @@ body.mode-encounter .right{
 .brandpack{grid-area:brand}
 .top-actions{grid-area:actions}
 .damage-track{grid-area:damage}
+
+
+/* v0.16.2 scene mode: restore log and let it rise into top strip space */
+body.mode-scene .topbar{
+  width:calc(100% - 635px);
+  max-width:calc(100% - 635px);
+  margin-right:auto;
+  grid-template-columns:178px auto minmax(240px,1fr);
+  gap:7px;
+}
+body.mode-scene .damage-track{
+  justify-content:flex-start;
+  padding-left:8px;
+  padding-right:8px;
+}
+body.mode-scene .damage-main{
+  justify-content:flex-start;
+  gap:10px;
+}
+body.mode-scene .hud-grid{
+  grid-template-columns:238px minmax(700px,1fr) 620px;
+  margin-top:-43px;
+  padding-top:43px;
+  align-items:start;
+}
+body.mode-scene .left,
+body.mode-scene .center{
+  height:96px;
+  min-height:96px;
+  max-height:96px;
+}
+body.mode-scene .right{
+  height:139px;
+  min-height:139px;
+  max-height:139px;
+  margin-top:-43px;
+  grid-template-rows:62px 1fr 30px;
+  gap:4px;
+}
+body.mode-scene .feed-card{
+  display:block !important;
+  padding:5px 7px;
+}
+body.mode-scene .recent-feed{
+  gap:3px;
+}
+body.mode-scene .feed-row{
+  padding:3px 5px;
+  font-size:9px;
+}
+body.mode-scene .side-note{
+  display:grid !important;
+  grid-template-columns:minmax(0,1fr) 74px;
+  gap:4px;
+}
+body.mode-scene .side-note input,
+body.mode-scene .side-note button{
+  height:28px;
+}
+body.mode-scene .last-card{
+  padding:7px 9px;
+}
+body.mode-scene .last-title{
+  font-size:14px;
+  line-height:1.04;
+}
+body.mode-scene .last-body{
+  font-size:10px;
+  -webkit-line-clamp:2;
+}
+body.mode-scene .track-label{
+  margin-right:2px;
+}
+body.mode-scene .damage-pips{
+  gap:7px;
+}
+body.mode-scene .dmg-sep{
+  margin:0 6px;
+}
+@media(min-width:1760px){
+  body.mode-scene .topbar{
+    width:calc(100% - 650px);
+    max-width:calc(100% - 650px);
+  }
+  body.mode-scene .hud-grid{
+    grid-template-columns:240px minmax(720px,1fr) 640px;
+  }
+}
