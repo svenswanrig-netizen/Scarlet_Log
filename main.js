@@ -1,7 +1,7 @@
-const VERSION="1602";
-const CHANNEL="scarlet-frontier-hud-v16-2";
-const META_KEY="com.scarletfrontier.hud/v16.2";
-const STORAGE_KEY="scarlet-hud-v16-2";
+const VERSION="1519";
+const CHANNEL="scarlet-frontier-hud-v15-19";
+const META_KEY="com.scarletfrontier.hud/v15.19";
+const STORAGE_KEY="scarlet-hud-v15-19";
 const MAX_EVENTS=80;
 const SKILLS=[
   {n:"Насилие",attr:"attrBody"},{n:"Атлетика",attr:"attrBody"},{n:"Стойкость",attr:"attrBody"},{n:"Выживание",attr:"attrBody"},
@@ -11,7 +11,6 @@ const SKILLS=[
 const DICE=["d4","d6","d8","d10","d12"];
 let OBR=null, online=false, seen=new Set(), events=[], adv=0, dis=0;
 let state={activeId:"", chars:{}};
-let hudMode=localStorage.getItem("scarlet-hud-mode-v16-1") || "encounter";
 
 const $ = id => document.getElementById(id);
 const clamp = (n,min,max)=>Math.max(min,Math.min(max,Number(n)||0));
@@ -100,19 +99,6 @@ function showToast(ev){
   const title=ev.type==="roll"?`${ev.actor} — ${ev.title}: ${ev.resultLabel}`:ev.type==="damage"?`${ev.actor} — ${ev.title}`:ev.actor||"Scarlet";
   t.innerHTML=`<div class="toast-title">${esc(title)}</div><div class="toast-body">${esc(ev.summary||ev.text||"")}</div>`;
   box.prepend(t); setTimeout(()=>{t.style.opacity="0"; t.style.transform="translateY(6px)"; t.style.transition=".2s";},4200); setTimeout(()=>t.remove(),4500);
-}
-
-
-function tryResizeHud(){ /* v16.1: disabled to prevent Owlbear popover clipping */ }
-function setHudMode(mode){
-  hudMode = mode==="scene" ? "scene" : "encounter";
-  localStorage.setItem("scarlet-hud-mode-v16-1", hudMode);
-  document.body.classList.toggle("mode-scene", hudMode==="scene");
-  document.body.classList.toggle("mode-encounter", hudMode!=="scene");
-  const sb=$("scene-mode-btn"), eb=$("encounter-mode-btn");
-  if(sb) sb.classList.toggle("active", hudMode==="scene");
-  if(eb) eb.classList.toggle("active", hudMode!=="scene");
-  tryResizeHud();
 }
 
 function syncControls(){
@@ -259,8 +245,6 @@ function bind(){
   $("skill-select").onchange=()=>renderDiceEditor(); $("die-1").onchange=applyDiceEditor; $("die-2").onchange=applyDiceEditor;
   $("roll-skill-btn").onclick=rollSkill; $("roll-damage-btn").onclick=rollDamage;
   $("new-turn-btn").onclick=()=>{ const c=currentChar(); c.od=3; c.overflowOtp=0; saveLocal(); renderAll(); saveRoomState(); };
-  $("scene-mode-btn").onclick=()=>setHudMode("scene");
-  $("encounter-mode-btn").onclick=()=>setHudMode("encounter");
   $("toggle-log-btn").onclick=()=>toggleJournal(); $("close-log-btn").onclick=()=>toggleJournal(false);
   $("chat-form").onsubmit=e=>{ e.preventDefault(); addChat($("chat-input").value,"chat"); $("chat-input").value=""; };
   $("scene-form").onsubmit=e=>{ e.preventDefault(); addChat($("scene-input").value,"scene"); $("scene-input").value=""; };
@@ -271,5 +255,5 @@ function bind(){
   $("clear-local-btn").onclick=()=>{ if(confirm("Очистить локальный журнал?")){ events=[]; seen.clear(); saveLocal(); renderAll(); } };
   document.addEventListener("keydown",e=>{ const tag=document.activeElement?.tagName; const typing=["INPUT","TEXTAREA","SELECT"].includes(tag); if(e.ctrlKey&&e.key==="Enter"){ e.preventDefault(); rollSkill(); } if(e.shiftKey&&e.key==="Enter"){ e.preventDefault(); rollDamage(); } if((e.ctrlKey&&e.key.toLowerCase()==="j")||(!typing&&e.key.toLowerCase()==="j")){ e.preventDefault(); toggleJournal(); } if(e.key==="Escape") toggleJournal(false); });
 }
-async function init(){ loadLocal(); bind(); setHudMode(hudMode); renderAll(); await loadSdk(); setHudMode(hudMode); renderAll(); }
+async function init(){ loadLocal(); bind(); renderAll(); await loadSdk(); renderAll(); }
 init();

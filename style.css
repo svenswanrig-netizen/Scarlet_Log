@@ -346,104 +346,9 @@ body{min-width:1800px}
 }
 
 
-/* v0.15.17 topbar cleanup */
-body{min-width:1800px}
-.topbar{
-  grid-template-columns:178px minmax(620px,1fr) auto;
-  gap:8px;
-  padding:4px 10px;
-}
-.damage-track{
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  gap:12px;
-  padding:2px 12px;
-  min-width:0;
-}
-.damage-main{
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  gap:12px;
-  min-width:0;
-  width:100%;
-}
-.track-label{
-  flex:0 0 auto;
-}
-.damage-pips{
-  gap:8px;
-  justify-content:center;
-}
-.dmg-sep{
-  margin:0 7px;
-  height:15px;
-  opacity:.85;
-}
-.dmg-pip{
-  width:17px;
-  height:17px;
-}
-.damage-legend{
-  display:none !important;
-}
-.top-actions{
-  display:flex;
-  align-items:center;
-  gap:5px;
-  margin-left:0;
-}
-.top-actions button{
-  height:24px;
-  padding:0 8px;
-  font-size:10px;
-}
-.net{
-  height:24px;
-  display:flex;
-  align-items:center;
-  padding:0 8px;
-}
-.hud-grid{
-  grid-template-columns:238px minmax(720px,780px) minmax(790px,1fr);
-  gap:6px;
-}
-.right{
-  grid-template-rows:78px 1fr 34px;
-  gap:5px;
-}
-.last-card{
-  padding:8px 10px;
-}
-.last-title{
-  font-size:15px;
-  margin-bottom:3px;
-}
-.last-body{
-  font-size:10px;
-  line-height:1.25;
-  -webkit-line-clamp:2;
-}
-.feed-card{
-  padding:7px 8px;
-}
-.feed-row{
-  padding:4px 6px;
-  font-size:10px;
-  line-height:1.2;
-}
-.side-note input,
-.side-note button{
-  height:30px;
-}
-@media(min-width:1760px){
-  .hud-grid{grid-template-columns:240px minmax(720px,790px) minmax(810px,1fr)}
-}
+/* v0.15.18 rollback-stable polish from v0.15.16 */
+body{min-width:1800px; overflow:hidden}
 
-
-/* v0.16.0: two-mode HUD + stronger full layout */
-body{min-width:1800px}
 .hud-shell{
   padding:4px 6px;
   grid-template-rows:38px auto;
@@ -452,49 +357,17 @@ body{min-width:1800px}
 .topbar{
   display:grid;
   grid-template-columns:178px auto minmax(420px,1fr);
-  grid-template-areas:"brand actions damage";
   align-items:center;
   gap:8px;
   padding:4px 10px;
 }
-.brandpack{grid-area:brand}
+.brandpack{min-width:0}
 .top-actions{
-  grid-area:actions;
   display:flex;
   align-items:center;
-  gap:5px;
   justify-content:flex-start;
-}
-.damage-track{
-  grid-area:damage;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  gap:12px;
-  padding:2px 12px;
+  gap:5px;
   min-width:0;
-}
-.damage-main{
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  gap:12px;
-  width:100%;
-  min-width:0;
-}
-.damage-legend{display:none !important}
-.damage-pips{
-  gap:9px;
-  justify-content:center;
-}
-.dmg-sep{
-  margin:0 8px;
-  height:15px;
-  opacity:.85;
-}
-.dmg-pip{
-  width:17px;
-  height:17px;
 }
 .top-actions button{
   height:24px;
@@ -508,36 +381,45 @@ body{min-width:1800px}
   padding:0 8px;
   font-size:9px;
 }
-.mode-switch{
+.damage-track{
   display:flex;
-  gap:2px;
-  padding:2px;
-  border:1px solid rgba(255,255,255,.06);
-  background:rgba(255,255,255,.025);
+  align-items:center;
+  justify-content:center;
+  min-width:0;
+  padding:2px 12px;
   border-radius:10px;
 }
-.mode-switch button{
-  height:20px;
-  padding:0 8px;
-  border-radius:8px;
-  color:var(--muted);
-  background:transparent;
-  border-color:transparent;
+.damage-main{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:12px;
+  min-width:0;
+  width:100%;
 }
-body.mode-scene #scene-mode-btn,
-body.mode-encounter #encounter-mode-btn{
-  color:#fff;
-  background:linear-gradient(180deg,#354052,#222936);
-  border-color:#4b5566;
+.damage-legend{display:none !important}
+.damage-pips{
+  gap:8px;
+  justify-content:center;
+}
+.dmg-pip{
+  width:17px;
+  height:17px;
+}
+.dmg-sep{
+  margin:0 7px;
+  height:15px;
+  opacity:.85;
 }
 
-/* Full encounter layout */
 .hud-grid{
-  grid-template-columns:238px minmax(690px,760px) minmax(820px,1fr);
+  grid-template-columns:238px minmax(690px,750px) minmax(860px,1fr);
   gap:6px;
 }
 .left,.center,.right{
   height:172px;
+  min-height:172px;
+  max-height:172px;
   padding:7px 8px;
   overflow:hidden;
 }
@@ -574,16 +456,16 @@ body.mode-encounter #encounter-mode-btn{
   gap:5px;
   overflow:hidden;
 }
-.skill{flex:0 1 220px;min-width:165px;max-width:245px}
-.weapon{flex:0 1 235px;min-width:170px;max-width:260px}
-.dice{flex:0 0 58px}
+.skill{flex:0 1 210px;min-width:160px;max-width:230px}
+.weapon{flex:0 1 225px;min-width:165px;max-width:245px}
+.dice{flex:0 0 56px}
 .tn{flex:0 0 48px}
-.ammo{flex:0 0 102px}
-.tsp{flex:0 0 58px}
+.ammo{flex:0 0 98px}
+.tsp{flex:0 0 56px}
 .mini-step{
-  min-width:54px;
+  min-width:52px;
   height:38px;
-  grid-template-columns:16px 18px 16px;
+  grid-template-columns:15px 18px 15px;
   grid-template-rows:9px 23px;
 }
 .mini-step button{height:23px}
@@ -594,7 +476,7 @@ body.mode-encounter #encounter-mode-btn{
   font-size:10px;
 }
 .big-btn{
-  min-width:106px;
+  min-width:108px;
   height:32px;
   padding:0 16px;
   font-size:12px;
@@ -607,12 +489,15 @@ body.mode-encounter #encounter-mode-btn{
   height:28px;
   padding:0 12px;
 }
+
 .right{
   display:grid;
   grid-template-rows:78px 1fr 34px;
   gap:5px;
 }
-.last-card{padding:8px 10px}
+.last-card{
+  padding:8px 10px;
+}
 .last-title{
   font-size:15px;
   line-height:1.05;
@@ -627,7 +512,9 @@ body.mode-encounter #encounter-mode-btn{
   display:block !important;
   padding:7px 8px;
 }
-.recent-feed{gap:4px}
+.recent-feed{
+  gap:4px;
+}
 .feed-row{
   padding:4px 6px;
   font-size:10px;
@@ -648,7 +535,10 @@ body.mode-encounter #encounter-mode-btn{
   border:none;
   min-width:0;
 }
-.side-note input{height:30px;min-width:0}
+.side-note input{
+  height:30px;
+  min-width:0;
+}
 .side-note button{
   height:30px;
   padding:0 8px;
@@ -657,76 +547,7 @@ body.mode-encounter #encounter-mode-btn{
   border-color:#4b5566;
   font-size:11px;
 }
-#toggle-log-btn.active{
-  color:#fff;
-  border-color:#5b6a7e;
-  background:#2c3544;
-}
 
-/* Scene mode: same popover, but mentally a compact narrative roller */
-body.mode-scene .hud-shell{
-  grid-template-rows:36px auto;
-}
-body.mode-scene .topbar{
-  grid-template-columns:178px auto minmax(300px,1fr);
-}
-body.mode-scene .damage-track{
-  opacity:.65;
-}
-body.mode-scene .hud-grid{
-  grid-template-columns:238px minmax(720px,820px) minmax(650px,1fr);
-}
-body.mode-scene .left,
-body.mode-scene .center,
-body.mode-scene .right{
-  height:92px;
-}
-body.mode-scene .resources{
-  display:flex;
-  align-items:center;
-  gap:4px;
-  margin-top:5px;
-}
-body.mode-scene .track{
-  flex:1 1 0;
-  padding:4px 5px;
-}
-body.mode-scene .sp-chip{
-  flex:0 0 56px;
-  padding:4px;
-}
-body.mode-scene .center{
-  display:flex;
-  align-items:center;
-}
-body.mode-scene .rollbar{
-  flex:1;
-  align-items:end;
-}
-body.mode-scene .damagebar{
-  display:none;
-}
-body.mode-scene .right{
-  grid-template-rows:1fr;
-}
-body.mode-scene .feed-card,
-body.mode-scene .side-note{
-  display:none !important;
-}
-body.mode-scene .last-card{
-  padding:8px 10px;
-}
-body.mode-scene .last-title{
-  font-size:15px;
-}
-body.mode-scene .last-body{
-  -webkit-line-clamp:2;
-}
-body.mode-scene .journal{
-  bottom:8px;
-}
-
-/* Journal restored as separate drawer */
 .journal{
   right:8px;
   bottom:8px;
@@ -738,192 +559,157 @@ body.mode-scene .journal{
   border-radius:14px;
 }
 .journal.open{transform:translateX(0)}
+#toggle-log-btn.active{
+  color:#fff;
+  border-color:#5b6a7e;
+  background:#2c3544;
+}
 
 @media(min-width:1760px){
-  .hud-grid{grid-template-columns:240px minmax(690px,760px) minmax(860px,1fr)}
-  body.mode-scene .hud-grid{grid-template-columns:240px minmax(720px,820px) minmax(700px,1fr)}
+  .hud-grid{grid-template-columns:240px minmax(690px,750px) minmax(900px,1fr)}
 }
 @media(max-width:1080px){
   body{min-width:0;overflow:auto}
-  .topbar{grid-template-columns:1fr;grid-template-areas:"brand" "actions" "damage"}
+  .topbar{grid-template-columns:1fr}
   .hud-grid{grid-template-columns:1fr}
-  .left,.center,.right,
-  body.mode-scene .left,
-  body.mode-scene .center,
-  body.mode-scene .right{height:auto}
+  .left,.center,.right{height:auto;min-height:0;max-height:none}
   .right{grid-template-rows:auto auto auto}
   .side-note{grid-template-columns:1fr auto}
 }
 
 
-/* v0.16.1 anti-clipping rollback fix */
-body{
-  min-width:1800px;
+/* v0.15.19: restore health/damage track + stop top strip before log */
+body{min-width:1800px; overflow:hidden}
+
+/* The topbar is intentionally shorter than the whole HUD:
+   right side belongs visually to result/log block below. */
+.topbar{
+  width:calc(100% - 915px);
+  max-width:calc(100% - 915px);
+  min-width:860px;
+  grid-template-columns:178px auto minmax(220px,1fr);
+  gap:8px;
+  margin-right:auto;
   overflow:hidden;
 }
 
-/* Keep the popover height stable. Scene mode is visual, not a forced collapse. */
-body.mode-scene .hud-shell,
-body.mode-encounter .hud-shell{
-  grid-template-rows:38px auto;
-}
-
-/* Full combat layout must always fit inside the declared 226px popover. */
-.hud-shell{
-  padding:4px 6px;
-  grid-template-rows:38px auto;
-  gap:5px;
-}
-.left,.center,.right{
-  height:172px;
-  min-height:172px;
-  max-height:172px;
-}
-
-/* Scene mode: compact content, but do NOT shrink the window itself. */
-body.mode-scene .left,
-body.mode-scene .center,
-body.mode-scene .right{
-  height:96px;
-  min-height:96px;
-  max-height:96px;
-}
-
-/* Leave a clean dark strip below compact scene mode instead of clipping content. */
-body.mode-scene .hud-shell{
-  align-content:start;
-}
-
-/* Make scene mode deliberately minimal and readable. */
-body.mode-scene .damagebar{
-  display:none !important;
-}
-body.mode-scene .feed-card,
-body.mode-scene .side-note{
-  display:none !important;
-}
-body.mode-scene .right{
-  grid-template-rows:1fr;
-}
-body.mode-scene .resources{
-  display:grid;
-  grid-template-columns:1fr 1fr 58px;
-  gap:4px;
-  margin-top:5px;
-}
-body.mode-scene .track,
-body.mode-scene .sp-chip{
-  padding:4px 5px;
-}
-body.mode-scene .center{
+/* Keep the service buttons near the title. */
+.top-actions{
   display:flex;
   align-items:center;
-}
-body.mode-scene .rollbar{
-  width:100%;
-}
-
-/* Stronger full/encounter right panel */
-body.mode-encounter .hud-grid{
-  grid-template-columns:238px minmax(690px,760px) minmax(860px,1fr);
-}
-body.mode-encounter .right{
-  grid-template-rows:78px 1fr 34px;
-}
-
-/* Topbar: service buttons close to brand, damage track in the middle/right */
-.topbar{
-  grid-template-columns:178px auto minmax(420px,1fr);
-  grid-template-areas:"brand actions damage";
-}
-.brandpack{grid-area:brand}
-.top-actions{grid-area:actions}
-.damage-track{grid-area:damage}
-
-
-/* v0.16.2 scene mode: restore log and let it rise into top strip space */
-body.mode-scene .topbar{
-  width:calc(100% - 635px);
-  max-width:calc(100% - 635px);
-  margin-right:auto;
-  grid-template-columns:178px auto minmax(240px,1fr);
-  gap:7px;
-}
-body.mode-scene .damage-track{
   justify-content:flex-start;
-  padding-left:8px;
-  padding-right:8px;
+  gap:5px;
+  min-width:0;
 }
-body.mode-scene .damage-main{
+.top-actions button{
+  height:24px;
+  padding:0 8px;
+  font-size:10px;
+}
+.net{
+  height:24px;
+  display:flex;
+  align-items:center;
+  padding:0 8px;
+}
+
+/* Restore the health/damage track clearly. */
+.damage-track{
+  display:flex !important;
+  visibility:visible !important;
+  opacity:1 !important;
+  align-items:center;
+  justify-content:flex-start;
+  min-width:0;
+  padding:2px 10px;
+}
+.damage-main{
+  display:flex !important;
+  align-items:center;
   justify-content:flex-start;
   gap:10px;
+  min-width:0;
+  width:100%;
 }
-body.mode-scene .hud-grid{
-  grid-template-columns:238px minmax(700px,1fr) 620px;
-  margin-top:-43px;
-  padding-top:43px;
-  align-items:start;
+.track-label{
+  display:inline-flex !important;
+  flex:0 0 auto;
 }
-body.mode-scene .left,
-body.mode-scene .center{
-  height:96px;
-  min-height:96px;
-  max-height:96px;
+.damage-pips{
+  display:flex !important;
+  gap:8px;
+  justify-content:flex-start;
+  align-items:center;
 }
-body.mode-scene .right{
-  height:139px;
-  min-height:139px;
-  max-height:139px;
-  margin-top:-43px;
-  grid-template-rows:62px 1fr 30px;
-  gap:4px;
+.dmg-pip{
+  display:inline-block !important;
+  width:17px;
+  height:17px;
 }
-body.mode-scene .feed-card{
-  display:block !important;
-  padding:5px 7px;
+.dmg-sep{
+  margin:0 7px;
+  height:15px;
+  opacity:.85;
 }
-body.mode-scene .recent-feed{
-  gap:3px;
+.damage-legend{display:none !important}
+
+/* Right block gets the visual priority and more width. */
+.hud-grid{
+  grid-template-columns:238px minmax(650px,710px) minmax(960px,1fr);
+  gap:6px;
 }
-body.mode-scene .feed-row{
-  padding:3px 5px;
-  font-size:9px;
-}
-body.mode-scene .side-note{
-  display:grid !important;
-  grid-template-columns:minmax(0,1fr) 74px;
-  gap:4px;
-}
-body.mode-scene .side-note input,
-body.mode-scene .side-note button{
-  height:28px;
-}
-body.mode-scene .last-card{
-  padding:7px 9px;
-}
-body.mode-scene .last-title{
-  font-size:14px;
-  line-height:1.04;
-}
-body.mode-scene .last-body{
-  font-size:10px;
-  -webkit-line-clamp:2;
-}
-body.mode-scene .track-label{
-  margin-right:2px;
-}
-body.mode-scene .damage-pips{
+.center{
+  grid-template-rows:1fr 1fr;
   gap:7px;
 }
-body.mode-scene .dmg-sep{
-  margin:0 6px;
+.skill{flex:0 1 195px;min-width:150px;max-width:215px}
+.weapon{flex:0 1 210px;min-width:155px;max-width:230px}
+.dice{flex:0 0 54px}
+.tn{flex:0 0 46px}
+.ammo{flex:0 0 92px}
+.tsp{flex:0 0 54px}
+.big-btn{
+  min-width:108px;
+  height:32px;
 }
+.damage-btn{
+  min-width:84px;
+}
+
+/* Taller, clearer result/log area. */
+.right{
+  grid-template-rows:82px 1fr 34px;
+  gap:5px;
+}
+.last-card{
+  padding:8px 10px;
+}
+.last-title{
+  font-size:15px;
+}
+.last-body{
+  font-size:10px;
+  line-height:1.25;
+  -webkit-line-clamp:2;
+}
+.feed-card{
+  padding:7px 8px;
+}
+.feed-row{
+  font-size:10px;
+  padding:4px 6px;
+}
+.side-note input,
+.side-note button{
+  height:30px;
+}
+
 @media(min-width:1760px){
-  body.mode-scene .topbar{
-    width:calc(100% - 650px);
-    max-width:calc(100% - 650px);
+  .topbar{
+    width:calc(100% - 935px);
+    max-width:calc(100% - 935px);
   }
-  body.mode-scene .hud-grid{
-    grid-template-columns:240px minmax(720px,1fr) 640px;
+  .hud-grid{
+    grid-template-columns:240px minmax(650px,710px) minmax(990px,1fr);
   }
 }

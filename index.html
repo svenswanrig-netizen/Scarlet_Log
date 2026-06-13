@@ -3,32 +3,37 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Scarlet Frontier HUD v0.16.2</title>
+  <title>Scarlet Frontier HUD v0.15.19</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=1602" />
+  <link rel="stylesheet" href="style.css?v=1519" />
 </head>
 <body>
   <main class="hud-shell">
     <header class="topbar panel">
       <div class="brandpack">
         <div class="kicker">SCARLET FRONTIER</div>
-        <div class="title">PLAYER HUD <span>v0.16.2</span></div>
+        <div class="title">PLAYER HUD <span>v0.15.19</span></div>
       </div>
       <div class="damage-track" title="Трек урона / ранений">
         <div class="damage-main">
           <span class="track-label">Урон</span>
           <div id="damage-pips" class="damage-pips"></div>
         </div>
-      </div>
+</div>
       <div class="top-actions">
-        <div class="mode-switch" title="Режим HUD"><button id="scene-mode-btn" type="button">Сцена</button><button id="encounter-mode-btn" type="button">Столкн.</button></div>
         <button id="new-turn-btn">Ход</button>
         <button id="import-btn">JSON</button>
         <button id="open-sheet-btn">Лист</button>
         <button id="toggle-log-btn">Журнал</button>
         <div class="net" id="net-status">local</div>
         <input id="file-input" type="file" accept=".json,application/json" hidden />
+      </div>
+      <div class="damage-track" title="Трек урона / ранений">
+        <div class="damage-main">
+          <span class="track-label">Урон</span>
+          <div id="damage-pips" class="damage-pips"></div>
+        </div>
       </div>
     </header>
 
@@ -112,6 +117,6 @@
     <div class="log" id="log"></div>
   </aside>
 
-  <script type="module" src="main.js?v=1602"></script>
+  <script type="module" src="main.js?v=1519"></script>
 </body>
 </html>
