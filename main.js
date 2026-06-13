@@ -1,7 +1,7 @@
-const VERSION="1600";
-const CHANNEL="scarlet-frontier-hud-v16-0";
-const META_KEY="com.scarletfrontier.hud/v16.0";
-const STORAGE_KEY="scarlet-hud-v16-0";
+const VERSION="1601";
+const CHANNEL="scarlet-frontier-hud-v16-1";
+const META_KEY="com.scarletfrontier.hud/v16.1";
+const STORAGE_KEY="scarlet-hud-v16-1";
 const MAX_EVENTS=80;
 const SKILLS=[
   {n:"Насилие",attr:"attrBody"},{n:"Атлетика",attr:"attrBody"},{n:"Стойкость",attr:"attrBody"},{n:"Выживание",attr:"attrBody"},
@@ -11,7 +11,7 @@ const SKILLS=[
 const DICE=["d4","d6","d8","d10","d12"];
 let OBR=null, online=false, seen=new Set(), events=[], adv=0, dis=0;
 let state={activeId:"", chars:{}};
-let hudMode=localStorage.getItem("scarlet-hud-mode-v16") || "encounter";
+let hudMode=localStorage.getItem("scarlet-hud-mode-v16-1") || "encounter";
 
 const $ = id => document.getElementById(id);
 const clamp = (n,min,max)=>Math.max(min,Math.min(max,Number(n)||0));
@@ -103,13 +103,10 @@ function showToast(ev){
 }
 
 
-function tryResizeHud(){
-  const h = hudMode==="scene" ? 126 : 226;
-  try{ OBR?.action?.setHeight?.(h); }catch(e){}
-}
+function tryResizeHud(){ /* v16.1: disabled to prevent Owlbear popover clipping */ }
 function setHudMode(mode){
   hudMode = mode==="scene" ? "scene" : "encounter";
-  localStorage.setItem("scarlet-hud-mode-v16", hudMode);
+  localStorage.setItem("scarlet-hud-mode-v16-1", hudMode);
   document.body.classList.toggle("mode-scene", hudMode==="scene");
   document.body.classList.toggle("mode-encounter", hudMode!=="scene");
   const sb=$("scene-mode-btn"), eb=$("encounter-mode-btn");

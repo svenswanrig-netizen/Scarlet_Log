@@ -754,3 +754,88 @@ body.mode-scene .journal{
   .right{grid-template-rows:auto auto auto}
   .side-note{grid-template-columns:1fr auto}
 }
+
+
+/* v0.16.1 anti-clipping rollback fix */
+body{
+  min-width:1800px;
+  overflow:hidden;
+}
+
+/* Keep the popover height stable. Scene mode is visual, not a forced collapse. */
+body.mode-scene .hud-shell,
+body.mode-encounter .hud-shell{
+  grid-template-rows:38px auto;
+}
+
+/* Full combat layout must always fit inside the declared 226px popover. */
+.hud-shell{
+  padding:4px 6px;
+  grid-template-rows:38px auto;
+  gap:5px;
+}
+.left,.center,.right{
+  height:172px;
+  min-height:172px;
+  max-height:172px;
+}
+
+/* Scene mode: compact content, but do NOT shrink the window itself. */
+body.mode-scene .left,
+body.mode-scene .center,
+body.mode-scene .right{
+  height:96px;
+  min-height:96px;
+  max-height:96px;
+}
+
+/* Leave a clean dark strip below compact scene mode instead of clipping content. */
+body.mode-scene .hud-shell{
+  align-content:start;
+}
+
+/* Make scene mode deliberately minimal and readable. */
+body.mode-scene .damagebar{
+  display:none !important;
+}
+body.mode-scene .feed-card,
+body.mode-scene .side-note{
+  display:none !important;
+}
+body.mode-scene .right{
+  grid-template-rows:1fr;
+}
+body.mode-scene .resources{
+  display:grid;
+  grid-template-columns:1fr 1fr 58px;
+  gap:4px;
+  margin-top:5px;
+}
+body.mode-scene .track,
+body.mode-scene .sp-chip{
+  padding:4px 5px;
+}
+body.mode-scene .center{
+  display:flex;
+  align-items:center;
+}
+body.mode-scene .rollbar{
+  width:100%;
+}
+
+/* Stronger full/encounter right panel */
+body.mode-encounter .hud-grid{
+  grid-template-columns:238px minmax(690px,760px) minmax(860px,1fr);
+}
+body.mode-encounter .right{
+  grid-template-rows:78px 1fr 34px;
+}
+
+/* Topbar: service buttons close to brand, damage track in the middle/right */
+.topbar{
+  grid-template-columns:178px auto minmax(420px,1fr);
+  grid-template-areas:"brand actions damage";
+}
+.brandpack{grid-area:brand}
+.top-actions{grid-area:actions}
+.damage-track{grid-area:damage}
