@@ -1,7 +1,7 @@
-const VERSION="15201";
-const CHANNEL="scarlet-frontier-hud-v15-20-1";
-const META_KEY="com.scarletfrontier.hud/v15.20.1";
-const STORAGE_KEY="scarlet-hud-v15-20-1";
+const VERSION="1521";
+const CHANNEL="scarlet-frontier-hud-v15-21";
+const META_KEY="com.scarletfrontier.hud/v15.21";
+const STORAGE_KEY="scarlet-hud-v15-21";
 const MAX_EVENTS=80;
 const SKILLS=[
   {n:"Насилие",attr:"attrBody"},{n:"Атлетика",attr:"attrBody"},{n:"Стойкость",attr:"attrBody"},{n:"Выживание",attr:"attrBody"},
@@ -25,6 +25,7 @@ function defaultChar(name="Оперативник"){
     id: uid(), name,
     attrBody:"d8", attrReact:"d8", attrMind:"d8",
     otp:0, otpMax:3, od:3, sp:0, damageCount:0, overflowOtp:0,
+    tokenId:"", tokenName:"",
     skills: SKILLS.map(s=>({n:s.n, dice:[]})),
     weapons:[{name:"Оружие", dmgCount:1, dmgDie:"d6", ammoLight:0, ammoAP:0, ammoExp:0}]
   };
@@ -45,6 +46,7 @@ function normalizeCharacter(c){
   }
   c.damageCount=clamp(c.damageCount,0,8);
   c.overflowOtp=clamp(c.overflowOtp||0,0,9);
+  c.tokenId=c.tokenId||""; c.tokenName=c.tokenName||"";
   if(!Array.isArray(c.skills)) c.skills=SKILLS.map(s=>({n:s.n,dice:[]}));
   if(!Array.isArray(c.weapons) || !c.weapons.length) c.weapons=[normWeapon({})];
 }
@@ -101,8 +103,75 @@ function showToast(ev){
   box.prepend(t); setTimeout(()=>{t.style.opacity="0"; t.style.transform="translateY(6px)"; t.style.transition=".2s";},4200); setTimeout(()=>t.remove(),4500);
 }
 
+
+async function getSelectedTokenInfo(){
+  if(!online || !OBR?.player?.getSelection) return null;
+  try{
+    const sel=await OBR.player.getSelection();
+    const id=Array.isArray(sel) ? sel[0] : null;
+    if(!id) return null;
+    let name="";
+    try{
+      if(OBR?.scene?.items?.getItems){
+        const items=await OBR.scene.items.getItems([id]);
+        const item=Array.isArray(items)?items[0]:null;
+        name=item?.name || item?.text?.plainText || "";
+      }
+    }catch(e){}
+    return {id, name:name||id.slice(0,8)};
+  }catch(e){
+    return null;
+  }
+}
+
+function findCharByToken(tokenId){
+  if(!tokenId) return null;
+  return Object.values(state.chars).find(c=>c.tokenId===tokenId) || null;
+}
+
+async function bindSelectedToken(){
+  const c=currentChar();
+  const info=await getSelectedTokenInfo();
+  const line=$("token-status");
+  if(!info){
+    if(line){ line.className="token-line warn"; line.textContent=online?"Выбери токен на карте и нажми «Токен»":"Токены доступны только в Owlbear"; }
+    return;
+  }
+  c.tokenId=info.id;
+  c.tokenName=info.name || "";
+  saveLocal(); renderAll(); await saveRoomState();
+  await broadcastEvent({id:uid(),type:"system",actor:"System",title:"Токен",summary:`${c.name} связан с токеном ${c.tokenName||c.tokenId.slice(0,8)}`,text:`${c.name} связан с токеном ${c.tokenName||c.tokenId.slice(0,8)}`,pill:"success",ts:Date.now(),time:nowTime()});
+}
+
+async function syncActiveCharacterFromSelectedToken(){
+  if(!online || !OBR?.player?.getSelection) return;
+  try{
+    const sel=await OBR.player.getSelection();
+    const id=Array.isArray(sel) ? sel[0] : null;
+    if(!id) return;
+    const ch=findCharByToken(id);
+    if(ch && ch.id!==state.activeId){
+      state.activeId=ch.id;
+      saveLocal();
+      renderAll();
+    }
+  }catch(e){}
+}
+
+function startTokenWatcher(){
+  if(!online || !OBR?.player?.getSelection) return;
+  setInterval(syncActiveCharacterFromSelectedToken, 900);
+}
+
+
 function syncControls(){
   const c=currentChar();
+  const tokenLine=$("token-status"), tokenBtn=$("bind-token-btn");
+  if(tokenLine){
+    if(c.tokenId){ tokenLine.className="token-line bound"; tokenLine.textContent=`Токен: ${c.tokenName||c.tokenId.slice(0,8)}`; }
+    else { tokenLine.className="token-line"; tokenLine.textContent="Токен не связан"; }
+  }
+  if(tokenBtn) tokenBtn.classList.toggle("bound",!!c.tokenId);
   $("char-name").value=c.name||""; $("otp-val").textContent=c.otp; $("otp-max").textContent=`/${c.otpMax||3}`;
   $("od-val").textContent=Math.min(c.od,3); $("od-bonus").textContent=c.od>3?`+${c.od-3}`:""; $("sp-val").textContent=c.sp;
   renderResourcePips("otp",c.otp,c.otpMax||3); renderResourcePips("od",Math.min(c.od,3),3); renderDamagePips();
@@ -250,10 +319,12 @@ function bind(){
   $("scene-form").onsubmit=e=>{ e.preventDefault(); addChat($("scene-input").value,"scene"); $("scene-input").value=""; };
   $("import-btn").onclick=()=>$("file-input").click();
   $("file-input").onchange=e=>{ const file=e.target.files?.[0]; if(!file) return; const r=new FileReader(); r.onload=ev=>{ try{ importCharacter(JSON.parse(ev.target.result),file.name); }catch(err){ alert("Ошибка JSON: "+err.message); } }; r.readAsText(file); e.target.value=""; };
+  const bindTokenBtn=$("bind-token-btn");
+  if(bindTokenBtn) bindTokenBtn.onclick=bindSelectedToken;
   $("open-sheet-btn").onclick=openFullSheet;
   $("export-log-btn").onclick=()=>{ const txt=[...events].map(ev=>`[${ev.time}] ${logTitle(ev)} — ${ev.summary||ev.text||""}`).join("\n"); const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([txt],{type:"text/plain;charset=utf-8"})); a.download="scarlet_log.txt"; a.click(); };
   $("clear-local-btn").onclick=()=>{ if(confirm("Очистить локальный журнал?")){ events=[]; seen.clear(); saveLocal(); renderAll(); } };
   document.addEventListener("keydown",e=>{ const tag=document.activeElement?.tagName; const typing=["INPUT","TEXTAREA","SELECT"].includes(tag); if(e.ctrlKey&&e.key==="Enter"){ e.preventDefault(); rollSkill(); } if(e.shiftKey&&e.key==="Enter"){ e.preventDefault(); rollDamage(); } if((e.ctrlKey&&e.key.toLowerCase()==="j")||(!typing&&e.key.toLowerCase()==="j")){ e.preventDefault(); toggleJournal(); } if(e.key==="Escape") toggleJournal(false); });
 }
-async function init(){ loadLocal(); bind(); renderAll(); await loadSdk(); renderAll(); }
+async function init(){ loadLocal(); bind(); renderAll(); await loadSdk(); startTokenWatcher(); renderAll(); }
 init();
