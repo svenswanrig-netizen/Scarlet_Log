@@ -3,17 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Scarlet Frontier HUD v0.15.19</title>
+  <title>Scarlet Frontier HUD v0.15.20</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=1519" />
+  <link rel="stylesheet" href="style.css?v=1520" />
 </head>
 <body>
   <main class="hud-shell">
     <header class="topbar panel">
       <div class="brandpack">
         <div class="kicker">SCARLET FRONTIER</div>
-        <div class="title">PLAYER HUD <span>v0.15.19</span></div>
+        <div class="title">PLAYER HUD <span>v0.15.20</span></div>
       </div>
       <div class="damage-track" title="Трек урона / ранений">
         <div class="damage-main">
@@ -76,8 +76,10 @@
           <label class="field dice"><span>К1</span><select id="die-1"></select></label>
           <label class="field dice"><span>К2</span><select id="die-2"></select></label>
           <label class="field tn"><span>TN</span><select id="tn"><option>3</option><option selected>4</option><option>5</option><option>6</option><option>7</option></select></label>
-          <div class="mini-step adv" title="Преимущество"><span>П+</span><button data-step="adv" data-delta="-1">−</button><b id="adv-val">0</b><button data-step="adv" data-delta="1">+</button></div>
-          <div class="mini-step dis" title="Помеха"><span>П−</span><button data-step="dis" data-delta="-1">−</button><b id="dis-val">0</b><button data-step="dis" data-delta="1">+</button></div>
+          <div class="mod-panel" title="ПР — преимущество, ПМ — помеха">
+            <div class="mod-row"><span>ПР</span><button data-step="adv" data-delta="-1">−</button><b id="adv-val">0</b><button data-step="adv" data-delta="1">+</button></div>
+            <div class="mod-row"><span>ПМ</span><button data-step="dis" data-delta="-1">−</button><b id="dis-val">0</b><button data-step="dis" data-delta="1">+</button></div>
+          </div>
           <label class="tiny-check"><input id="insurance" type="checkbox"><span>Страх.</span></label>
           <label class="tiny-check"><input id="zero" type="checkbox"><span>Зеро</span></label>
           <button class="big-btn" id="roll-skill-btn">БРОСОК</button>
@@ -117,6 +119,6 @@
     <div class="log" id="log"></div>
   </aside>
 
-  <script type="module" src="main.js?v=1519"></script>
+  <script type="module" src="main.js?v=1520"></script>
 </body>
 </html>

@@ -1,7 +1,7 @@
-const VERSION="1519";
-const CHANNEL="scarlet-frontier-hud-v15-19";
-const META_KEY="com.scarletfrontier.hud/v15.19";
-const STORAGE_KEY="scarlet-hud-v15-19";
+const VERSION="1520";
+const CHANNEL="scarlet-frontier-hud-v15-20";
+const META_KEY="com.scarletfrontier.hud/v15.20";
+const STORAGE_KEY="scarlet-hud-v15-20";
 const MAX_EVENTS=80;
 const SKILLS=[
   {n:"Насилие",attr:"attrBody"},{n:"Атлетика",attr:"attrBody"},{n:"Стойкость",attr:"attrBody"},{n:"Выживание",attr:"attrBody"},
