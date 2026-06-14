@@ -923,3 +923,21 @@ body{min-width:1800px; overflow:hidden}
 .resources{
   margin-top:3px;
 }
+
+/* v0.15.22 target + camera */
+.token-line,.target-line{
+  height:13px;display:flex;align-items:center;overflow:hidden;white-space:nowrap;
+  text-overflow:ellipsis;font-family:var(--m);color:var(--dim);font-size:8px;padding:0 2px;
+}
+.token-line{margin-top:3px}
+.target-line{margin-top:1px;color:#9eb7d8}
+.target-line.bound{color:#9fd0ff}
+.target-line.warn{color:#ffd180}
+#bind-token-btn.bound{color:#a5e8aa;border-color:rgba(67,160,71,.42);background:rgba(67,160,71,.12)}
+#set-target-btn.bound{color:#9fd0ff;border-color:rgba(100,181,246,.48);background:rgba(33,150,243,.12)}
+#focus-token-btn:active{transform:translateY(1px)}
+.left{display:block}
+.resources{margin-top:2px}
+.top-actions{gap:4px}
+.top-actions button{height:24px;padding:0 7px;font-size:9px}
+.net{padding:0 7px;font-size:8px}

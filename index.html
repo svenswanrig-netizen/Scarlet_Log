@@ -3,17 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Scarlet Frontier HUD v0.15.21</title>
+  <title>Scarlet Frontier HUD v0.15.22</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=1521" />
+  <link rel="stylesheet" href="style.css?v=1522" />
 </head>
 <body>
   <main class="hud-shell">
     <header class="topbar panel">
       <div class="brandpack">
         <div class="kicker">SCARLET FRONTIER</div>
-        <div class="title">PLAYER HUD <span>v0.15.21</span></div>
+        <div class="title">PLAYER HUD <span>v0.15.22</span></div>
       </div>
       <div class="damage-track" title="Трек урона / ранений">
         <div class="damage-main">
@@ -25,6 +25,8 @@
         <button id="new-turn-btn">Ход</button>
         <button id="import-btn">JSON</button>
         <button id="bind-token-btn" title="Связать текущего персонажа с выбранным токеном">Токен</button>
+        <button id="set-target-btn" title="Сделать выбранный токен целью">Цель</button>
+        <button id="focus-token-btn" title="Подвести камеру к выбранному/связанному токену">Камера</button>
         <button id="open-sheet-btn">Лист</button>
         <button id="toggle-log-btn">Журнал</button>
         <div class="net" id="net-status">local</div>
@@ -51,6 +53,7 @@
           </label>
         </div>
         <div class="token-line" id="token-status">Токен не связан</div>
+        <div class="target-line" id="target-status">Цель не выбрана</div>
         <div class="resources">
           <div class="track otp">
             <div class="track-head"><span>ОТП</span><b id="otp-val">0</b><em id="otp-max">/3</em></div>
@@ -121,6 +124,6 @@
     <div class="log" id="log"></div>
   </aside>
 
-  <script type="module" src="main.js?v=1521"></script>
+  <script type="module" src="main.js?v=1522"></script>
 </body>
 </html>
