@@ -1,7 +1,7 @@
-const VERSION="1522";
-const CHANNEL="scarlet-frontier-hud-v15-22";
-const META_KEY="com.scarletfrontier.hud/v15.22";
-const STORAGE_KEY="scarlet-hud-v15-22";
+const VERSION="1522c";
+const CHANNEL="scarlet-frontier-hud-v15-22-clean";
+const META_KEY="com.scarletfrontier.hud/v15.22.clean";
+const STORAGE_KEY="scarlet-hud-v15-22-clean";
 const MAX_EVENTS=80;
 const SKILLS=[
   {n:"Насилие",attr:"attrBody"},{n:"Атлетика",attr:"attrBody"},{n:"Стойкость",attr:"attrBody"},{n:"Выживание",attr:"attrBody"},
@@ -131,100 +131,91 @@ function findCharByToken(tokenId){
 
 
 function renderTargetStatus(){
-  const line=$("target-status"), btn=$("set-target-btn");
+  const line=$("target-status");
   const t=state.target || {};
-  if(line){
-    if(t.id){ line.className="target-line bound"; line.textContent=`Цель: ${t.name||t.id.slice(0,8)}${t.sp?` · SP ${t.sp}`:""}`; }
-    else { line.className="target-line"; line.textContent="Цель не выбрана"; }
+  if(!line) return;
+  if(t.id){
+    line.className="target-line bound";
+    line.textContent=`Цель: ${t.name||t.id.slice(0,8)}${Number.isFinite(t.sp)&&t.sp>0?` · SP ${t.sp}`:""}`;
+  }else{
+    line.className="target-line";
+    line.textContent="Цель не выбрана";
   }
-  if(btn) btn.classList.toggle("bound",!!t.id);
 }
 function itemDisplayName(item, fallbackId=""){
   return item?.name || item?.text?.plainText || item?.label || (fallbackId ? fallbackId.slice(0,8) : "Токен");
 }
-function itemApproxBounds(item){
-  if(!item) return null;
-  if(item.bounds) return item.bounds;
-  if(item.position && (item.width || item.height)){
-    const w=item.width || 300, h=item.height || 300;
-    return {min:{x:item.position.x-w/2,y:item.position.y-h/2},max:{x:item.position.x+w/2,y:item.position.y+h/2}};
+async function getContextOrSelectedItem(context){
+  let id=context?.items?.[0]?.id || context?.item?.id || context?.id || "";
+  if(!id && online && OBR?.player?.getSelection){
+    try{
+      const sel=await OBR.player.getSelection();
+      id=Array.isArray(sel)?sel[0]:"";
+    }catch(e){}
   }
-  if(item.position && item.grid?.dpi){
-    const w=item.grid.dpi, h=item.grid.dpi;
-    return {min:{x:item.position.x-w/2,y:item.position.y-h/2},max:{x:item.position.x+w/2,y:item.position.y+h/2}};
-  }
-  if(item.position) return {min:{x:item.position.x-150,y:item.position.y-150},max:{x:item.position.x+150,y:item.position.y+150}};
-  return null;
-}
-function combineBounds(bounds){
-  const good=bounds.filter(Boolean);
-  if(!good.length) return null;
-  return good.reduce((a,b)=>({min:{x:Math.min(a.min.x,b.min.x),y:Math.min(a.min.y,b.min.y)},max:{x:Math.max(a.max.x,b.max.x),y:Math.max(a.max.y,b.max.y)}}));
-}
-async function getSelectedItemsInfo(){
-  if(!online || !OBR?.player?.getSelection) return [];
+  if(!id) return null;
+  let item=null;
   try{
-    const sel=await OBR.player.getSelection();
-    const ids=Array.isArray(sel) ? sel : [];
-    if(!ids.length) return [];
-    let items=[];
-    try{ if(OBR?.scene?.items?.getItems) items=await OBR.scene.items.getItems(ids); }catch(e){}
-    return ids.map(id=>{
-      const item=items.find(it=>it.id===id) || null;
-      const ch=findCharByToken(id);
-      return {id,item,name:ch?.name||itemDisplayName(item,id),charId:ch?.id||"",sp:Number.isFinite(ch?.sp)?ch.sp:0,bounds:itemApproxBounds(item)};
-    });
-  }catch(e){ return []; }
+    if(online && OBR?.scene?.items?.getItems){
+      const items=await OBR.scene.items.getItems([id]);
+      item=items?.[0] || null;
+    }
+  }catch(e){}
+  return {id,item};
 }
-async function setSelectedTarget(){
-  const infos=await getSelectedItemsInfo();
+async function bindContextToken(context){
+  const got=await getContextOrSelectedItem(context);
+  const line=$("token-status");
+  if(!got){
+    if(line){ line.className="token-line warn"; line.textContent="Не выбран токен"; }
+    return;
+  }
+  const c=currentChar();
+  const name=itemDisplayName(got.item,got.id);
+  c.tokenId=got.id;
+  c.tokenName=name;
+  saveLocal();
+  renderAll();
+  await saveRoomState();
+  await broadcastEvent({id:uid(),type:"system",actor:"System",title:"Токен",summary:`${c.name} связан с токеном ${name}`,text:`${c.name} связан с токеном ${name}`,pill:"success",ts:Date.now(),time:nowTime()});
+}
+async function setContextTarget(context){
+  const got=await getContextOrSelectedItem(context);
   const line=$("target-status");
-  if(!infos.length){
+  if(!got){
     state.target={id:"",name:"",charId:"",sp:0};
     saveLocal(); renderAll();
-    if(line){ line.className="target-line warn"; line.textContent=online?"Выбери токен цели на карте":"Цель доступна только в Owlbear"; }
+    if(line){ line.className="target-line warn"; line.textContent="Не выбран токен цели"; }
     return;
   }
-  const info=infos[0];
-  state.target={id:info.id,name:info.name||info.id.slice(0,8),charId:info.charId||"",sp:info.sp||0};
-  saveLocal(); renderAll(); await saveRoomState();
-  await broadcastEvent({id:uid(),type:"system",actor:"System",title:"Цель",summary:`Цель: ${state.target.name}${state.target.sp?` · SP ${state.target.sp}`:""}`,text:`Цель выбрана: ${state.target.name}${state.target.sp?` · SP ${state.target.sp}`:""}`,pill:"info",ts:Date.now(),time:nowTime()});
+  const ch=findCharByToken(got.id);
+  const name=ch?.name || itemDisplayName(got.item,got.id);
+  state.target={id:got.id,name, charId:ch?.id||"", sp:Number.isFinite(ch?.sp)?ch.sp:0};
+  saveLocal();
+  renderAll();
+  await saveRoomState();
+  await broadcastEvent({id:uid(),type:"system",actor:"System",title:"Цель",summary:`Цель: ${name}${state.target.sp?` · SP ${state.target.sp}`:""}`,text:`Цель выбрана: ${name}${state.target.sp?` · SP ${state.target.sp}`:""}`,pill:"info",ts:Date.now(),time:nowTime()});
 }
-async function focusSelectedOrLinkedToken(){
-  if(!online || !OBR?.viewport?.animateToBounds){
-    const line=$("target-status"); if(line){ line.className="target-line warn"; line.textContent="Камера доступна только в Owlbear"; }
-    return;
-  }
+async function registerScarletContextMenu(){
+  if(!online || !OBR?.contextMenu?.create) return;
   try{
-    let infos=await getSelectedItemsInfo();
-    if(!infos.length){
-      const c=currentChar();
-      let id=c.tokenId || state.target?.id || "";
-      if(id && OBR?.scene?.items?.getItems){
-        const items=await OBR.scene.items.getItems([id]);
-        const item=items?.[0] || null;
-        infos=[{id,item,name:c.tokenName||state.target?.name||itemDisplayName(item,id),bounds:itemApproxBounds(item)}];
-      }
-    }
-    const bounds=combineBounds(infos.map(i=>i.bounds));
-    if(bounds) await OBR.viewport.animateToBounds(bounds);
-    else {
-      const line=$("target-status"); if(line){ line.className="target-line warn"; line.textContent="Не удалось получить границы токена"; }
-    }
+    await OBR.contextMenu.create({
+      id:"scarlet-bind-token",
+      icons:[{icon:"/icon.svg",label:"Scarlet"}],
+      shortcut:"B",
+      filter:{every:[{key:"layer",value:"CHARACTER"}]},
+      onClick:bindContextToken
+    });
+    await OBR.contextMenu.create({
+      id:"scarlet-set-target",
+      icons:[{icon:"/icon.svg",label:"Цель"}],
+      shortcut:"T",
+      filter:{every:[{key:"layer",value:"CHARACTER"}]},
+      onClick:setContextTarget
+    });
   }catch(e){
-    const line=$("target-status"); if(line){ line.className="target-line warn"; line.textContent="Камера: ошибка API"; }
+    // Context menu API differs between Owlbear versions; HUD remains usable.
   }
-}
-async function syncTargetInfoFromSelection(){
-  if(!online) return;
-  const infos=await getSelectedItemsInfo();
-  const line=$("target-status");
-  if(!line) return;
-  if(!infos.length){ renderTargetStatus(); return; }
-  const info=infos[0];
-  const linked=info.charId ? " · связан" : "";
-  line.className="target-line";
-  line.textContent=`Выбран: ${info.name}${info.sp?` · SP ${info.sp}`:""}${linked}`;
 }
 
 async function bindSelectedToken(){
@@ -258,8 +249,7 @@ async function syncActiveCharacterFromSelectedToken(){
 
 function startTokenWatcher(){
   if(!online || !OBR?.player?.getSelection) return;
-  setInterval(syncActiveCharacterFromSelectedToken, 900);
-  setInterval(syncTargetInfoFromSelection, 1100);
+  // token auto-switch disabled in v15.22-clean
 }
 
 
@@ -271,6 +261,7 @@ function syncControls(){
     else { tokenLine.className="token-line"; tokenLine.textContent="Токен не связан"; }
   }
   if(tokenBtn) tokenBtn.classList.toggle("bound",!!c.tokenId);
+  renderTargetStatus();
   $("char-name").value=c.name||""; $("otp-val").textContent=c.otp; $("otp-max").textContent=`/${c.otpMax||3}`;
   $("od-val").textContent=Math.min(c.od,3); $("od-bonus").textContent=c.od>3?`+${c.od-3}`:""; $("sp-val").textContent=c.sp;
   renderResourcePips("otp",c.otp,c.otpMax||3); renderResourcePips("od",Math.min(c.od,3),3); renderDamagePips();
@@ -418,16 +409,10 @@ function bind(){
   $("scene-form").onsubmit=e=>{ e.preventDefault(); addChat($("scene-input").value,"scene"); $("scene-input").value=""; };
   $("import-btn").onclick=()=>$("file-input").click();
   $("file-input").onchange=e=>{ const file=e.target.files?.[0]; if(!file) return; const r=new FileReader(); r.onload=ev=>{ try{ importCharacter(JSON.parse(ev.target.result),file.name); }catch(err){ alert("Ошибка JSON: "+err.message); } }; r.readAsText(file); e.target.value=""; };
-  const bindTokenBtn=$("bind-token-btn");
-  if(bindTokenBtn) bindTokenBtn.onclick=bindSelectedToken;
-  const setTargetBtn=$("set-target-btn");
-  if(setTargetBtn) setTargetBtn.onclick=setSelectedTarget;
-  const focusTokenBtn=$("focus-token-btn");
-  if(focusTokenBtn) focusTokenBtn.onclick=focusSelectedOrLinkedToken;
   $("open-sheet-btn").onclick=openFullSheet;
   $("export-log-btn").onclick=()=>{ const txt=[...events].map(ev=>`[${ev.time}] ${logTitle(ev)} — ${ev.summary||ev.text||""}`).join("\n"); const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([txt],{type:"text/plain;charset=utf-8"})); a.download="scarlet_log.txt"; a.click(); };
   $("clear-local-btn").onclick=()=>{ if(confirm("Очистить локальный журнал?")){ events=[]; seen.clear(); saveLocal(); renderAll(); } };
   document.addEventListener("keydown",e=>{ const tag=document.activeElement?.tagName; const typing=["INPUT","TEXTAREA","SELECT"].includes(tag); if(e.ctrlKey&&e.key==="Enter"){ e.preventDefault(); rollSkill(); } if(e.shiftKey&&e.key==="Enter"){ e.preventDefault(); rollDamage(); } if((e.ctrlKey&&e.key.toLowerCase()==="j")||(!typing&&e.key.toLowerCase()==="j")){ e.preventDefault(); toggleJournal(); } if(e.key==="Escape") toggleJournal(false); });
 }
-async function init(){ loadLocal(); bind(); renderAll(); await loadSdk(); startTokenWatcher(); renderAll(); }
+async function init(){ loadLocal(); bind(); renderAll(); await loadSdk(); await registerScarletContextMenu(); startTokenWatcher(); renderAll(); }
 init();
