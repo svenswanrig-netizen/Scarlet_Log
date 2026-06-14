@@ -958,3 +958,9 @@ body{min-width:1800px; overflow:hidden}
   padding:0 8px;
   font-size:9px;
 }
+
+
+/* v0.15.23: token damage/target status */
+.target-line.damage{
+  color:#ffb3b3;
+}

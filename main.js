@@ -1,7 +1,7 @@
-const VERSION="1522c";
-const CHANNEL="scarlet-frontier-hud-v15-22-clean";
-const META_KEY="com.scarletfrontier.hud/v15.22.clean";
-const STORAGE_KEY="scarlet-hud-v15-22-clean";
+const VERSION="1523";
+const CHANNEL="scarlet-frontier-hud-v15-23";
+const META_KEY="com.scarletfrontier.hud/v15.23";
+const STORAGE_KEY="scarlet-hud-v15-23";
 const MAX_EVENTS=80;
 const SKILLS=[
   {n:"Насилие",attr:"attrBody"},{n:"Атлетика",attr:"attrBody"},{n:"Стойкость",attr:"attrBody"},{n:"Выживание",attr:"attrBody"},
@@ -9,8 +9,8 @@ const SKILLS=[
   {n:"Следствие",attr:"attrMind"},{n:"Влияние",attr:"attrMind"},{n:"Медицина",attr:"attrMind"},{n:"Техника",attr:"attrMind"},{n:"Психика",attr:"attrMind"}
 ];
 const DICE=["d4","d6","d8","d10","d12"];
-let OBR=null, online=false, seen=new Set(), events=[], adv=0, dis=0;
-let state={activeId:"", chars:{}};
+let OBR=null, SDK=null, online=false, seen=new Set(), events=[], adv=0, dis=0;
+let state={activeId:"", chars:{}, target:{id:"",name:"",charId:"",sp:0}, tokenDamage:{}};
 
 const $ = id => document.getElementById(id);
 const clamp = (n,min,max)=>Math.max(min,Math.min(max,Number(n)||0));
@@ -56,6 +56,7 @@ function loadLocal(){
     const raw=localStorage.getItem(STORAGE_KEY);
     if(raw){ const data=JSON.parse(raw); if(data?.state) state=data.state; if(Array.isArray(data?.events)) events=data.events; }
   }catch{}
+  state.target ||= {id:"",name:"",charId:"",sp:0}; state.tokenDamage ||= {};
   if(!Object.keys(state.chars).length){ const c=defaultChar(); state.chars[c.id]=c; state.activeId=c.id; }
   for(const c of Object.values(state.chars)) normalizeCharacter(c);
   for(const ev of events) if(ev?.id) seen.add(ev.id);
@@ -65,7 +66,7 @@ async function waitReady(){ if(OBR?.isReady) return; await new Promise(r=>{ cons
 async function loadSdk(){
   try{
     const mod = await import("https://cdn.jsdelivr.net/npm/@owlbear-rodeo/sdk@latest/+esm");
-    OBR = mod.default;
+    SDK = mod; OBR = mod.default;
     if(!OBR?.isAvailable) throw new Error("OBR unavailable");
     await waitReady();
     online=true; $("net-status").textContent="online"; $("net-status").className="net online";
@@ -75,7 +76,13 @@ async function loadSdk(){
 function setupBroadcast(){ try{ OBR.broadcast.onMessage(CHANNEL,msg=>{ const ev=msg?.data??msg; if(ev?.id) receiveEvent(ev); }); }catch(e){} }
 function setupMetadataListener(){ try{ OBR.room.onMetadataChange(meta=>applyRoomState(meta?.[META_KEY])); }catch(e){} }
 async function loadRoomState(){ try{ const meta=await OBR.room.getMetadata(); applyRoomState(meta?.[META_KEY]); }catch(e){} }
-function applyRoomState(rs){ if(!rs || typeof rs!=="object") return; if(Array.isArray(rs.events)) rs.events.forEach(ev=>addEventLocal(ev,false,false)); renderAll(); saveLocal(); }
+function applyRoomState(rs){
+  if(!rs || typeof rs!=="object") return;
+  if(rs.target && typeof rs.target==="object") state.target=rs.target;
+  if(rs.tokenDamage && typeof rs.tokenDamage==="object") state.tokenDamage=rs.tokenDamage;
+  if(Array.isArray(rs.events)) rs.events.forEach(ev=>addEventLocal(ev,false,false));
+  renderAll(); saveLocal();
+}
 async function saveRoomState(extraEvent=null){
   if(!online || !OBR?.room) return;
   try{
@@ -85,7 +92,7 @@ async function saveRoomState(extraEvent=null){
     for(const ev of events) if(ev?.id) map.set(ev.id,ev);
     if(extraEvent?.id) map.set(extraEvent.id,extraEvent);
     const next=Array.from(map.values()).sort((a,b)=>(a.ts||0)-(b.ts||0)).slice(-MAX_EVENTS);
-    await OBR.room.setMetadata({[META_KEY]:{events:next,updated:Date.now()}});
+    await OBR.room.setMetadata({[META_KEY]:{events:next,target:state.target||{},tokenDamage:state.tokenDamage||{},updated:Date.now()}});
   }catch(e){}
 }
 async function broadcastEvent(ev){ ev.ts ||= Date.now(); ev.time ||= nowTime(); addEventLocal(ev,true,true); if(online && OBR?.broadcast){ try{ await OBR.broadcast.sendMessage(CHANNEL,ev,{destination:"REMOTE"}); }catch(e){} } await saveRoomState(ev); }
@@ -135,8 +142,9 @@ function renderTargetStatus(){
   const t=state.target || {};
   if(!line) return;
   if(t.id){
-    line.className="target-line bound";
-    line.textContent=`Цель: ${t.name||t.id.slice(0,8)}${Number.isFinite(t.sp)&&t.sp>0?` · SP ${t.sp}`:""}`;
+    const dmg=state.tokenDamage?.[t.id]?.damage||0;
+    line.className=`target-line bound${dmg?" damage":""}`;
+    line.textContent=`Цель: ${t.name||t.id.slice(0,8)}${Number.isFinite(t.sp)&&t.sp>0?` · SP ${t.sp}`:""}${dmg?` · урон ${dmg}`:""}`;
   }else{
     line.className="target-line";
     line.textContent="Цель не выбрана";
@@ -182,9 +190,11 @@ async function bindContextToken(context){
 async function setContextTarget(context){
   const got=await getContextOrSelectedItem(context);
   const line=$("target-status");
+  const oldTarget=state.target?.id || "";
   if(!got){
     state.target={id:"",name:"",charId:"",sp:0};
-    saveLocal(); renderAll();
+    saveLocal(); renderAll(); await saveRoomState();
+    if(oldTarget) await refreshTokenMarker(oldTarget);
     if(line){ line.className="target-line warn"; line.textContent="Не выбран токен цели"; }
     return;
   }
@@ -194,8 +204,123 @@ async function setContextTarget(context){
   saveLocal();
   renderAll();
   await saveRoomState();
+  if(oldTarget && oldTarget!==got.id) await refreshTokenMarker(oldTarget);
+  await refreshTokenMarker(got.id);
   await broadcastEvent({id:uid(),type:"system",actor:"System",title:"Цель",summary:`Цель: ${name}${state.target.sp?` · SP ${state.target.sp}`:""}`,text:`Цель выбрана: ${name}${state.target.sp?` · SP ${state.target.sp}`:""}`,pill:"info",ts:Date.now(),time:nowTime()});
 }
+
+const SCARLET_MARKER_KEY="com.scarletfrontier.hud/marker";
+
+function markerTextForToken(tokenId){
+  const dmg=state.tokenDamage?.[tokenId]?.damage||0;
+  const isTarget=state.target?.id===tokenId;
+  if(!dmg && !isTarget) return "";
+  const dots=Math.min(4, Math.ceil(dmg/2));
+  const pips=dmg ? "●".repeat(dots)+"○".repeat(4-dots) : "";
+  return `${isTarget?"🎯 ":""}${pips}`;
+}
+function tokenDamageStage(dmg){
+  if(!dmg) return "нет урона";
+  if(dmg<=2) return "ранен";
+  if(dmg<=5) return "средне";
+  if(dmg<=7) return "тяжело";
+  return "критическое";
+}
+function tokenDamageEntry(tokenId){
+  state.tokenDamage ||= {};
+  state.tokenDamage[tokenId] ||= {damage:0,max:8};
+  return state.tokenDamage[tokenId];
+}
+function itemCenter(item){
+  if(!item) return {x:0,y:0};
+  if(item.position) return item.position;
+  if(item.bounds) return {x:(item.bounds.min.x+item.bounds.max.x)/2,y:(item.bounds.min.y+item.bounds.max.y)/2};
+  return {x:0,y:0};
+}
+function itemTopY(item){
+  if(item?.bounds) return item.bounds.min.y;
+  if(item?.position) return item.position.y-120;
+  return 0;
+}
+async function findMarkerIds(tokenId){
+  if(!online || !OBR?.scene?.items?.getItems) return [];
+  try{
+    const all=await OBR.scene.items.getItems();
+    return all.filter(it=>it?.metadata?.[SCARLET_MARKER_KEY]?.tokenId===tokenId).map(it=>it.id);
+  }catch(e){ return []; }
+}
+async function deleteTokenMarker(tokenId){
+  try{
+    const ids=await findMarkerIds(tokenId);
+    if(ids.length && OBR?.scene?.items?.deleteItems) await OBR.scene.items.deleteItems(ids);
+  }catch(e){}
+}
+async function getItemById(id){
+  try{
+    if(!id || !OBR?.scene?.items?.getItems) return null;
+    const items=await OBR.scene.items.getItems([id]);
+    return items?.[0] || null;
+  }catch(e){ return null; }
+}
+function buildTextMarker(text,item,tokenId){
+  const c=itemCenter(item), y=itemTopY(item)-42;
+  const position={x:c.x,y};
+  if(SDK?.buildText){
+    try{
+      let b=SDK.buildText({plainText:text,style:{fontSize:28,fontWeight:700,textAlign:"CENTER",fillColor:"#ffdf6e",strokeColor:"#161a22",strokeWidth:4},type:"PLAIN"});
+      if(b.position) b=b.position(position);
+      if(b.layer) b=b.layer("ATTACHMENT");
+      if(b.attachedTo) b=b.attachedTo(tokenId);
+      if(b.metadata) b=b.metadata({[SCARLET_MARKER_KEY]:{tokenId}});
+      return b.build ? b.build() : b;
+    }catch(e){}
+  }
+  return {
+    id:`scarlet_marker_${tokenId}_${Date.now()}`,
+    name:"Scarlet status",
+    type:"TEXT",
+    layer:"ATTACHMENT",
+    position,
+    text:{plainText:text,style:{fontSize:28,fontWeight:700,textAlign:"CENTER",fillColor:"#ffdf6e",strokeColor:"#161a22",strokeWidth:4},type:"PLAIN"},
+    locked:true,
+    metadata:{[SCARLET_MARKER_KEY]:{tokenId}}
+  };
+}
+async function refreshTokenMarker(tokenId){
+  if(!online || !tokenId || !OBR?.scene?.items) return;
+  const text=markerTextForToken(tokenId);
+  await deleteTokenMarker(tokenId);
+  if(!text) return;
+  const item=await getItemById(tokenId);
+  if(!item) return;
+  try{
+    const marker=buildTextMarker(text,item,tokenId);
+    if(OBR.scene.items.addItems) await OBR.scene.items.addItems([marker]);
+  }catch(e){}
+}
+async function adjustContextDamage(context,delta){
+  const got=await getContextOrSelectedItem(context);
+  const line=$("target-status");
+  if(!got){ if(line){ line.className="target-line warn"; line.textContent="Не выбран токен"; } return; }
+  const entry=tokenDamageEntry(got.id);
+  const before=entry.damage||0;
+  entry.damage=clamp(before+delta,0,99);
+  entry.name=entry.name || itemDisplayName(got.item,got.id);
+  saveLocal(); renderAll(); await saveRoomState(); await refreshTokenMarker(got.id);
+  await broadcastEvent({id:uid(),type:"system",actor:"System",title:"Урон",summary:`${entry.name}: ${before} → ${entry.damage} (${tokenDamageStage(entry.damage)})`,text:`${entry.name}: урон ${before} → ${entry.damage} (${tokenDamageStage(entry.damage)})`,pill:"damage",ts:Date.now(),time:nowTime()});
+}
+async function clearContextDamage(context){
+  const got=await getContextOrSelectedItem(context);
+  const line=$("target-status");
+  if(!got){ if(line){ line.className="target-line warn"; line.textContent="Не выбран токен"; } return; }
+  const entry=tokenDamageEntry(got.id);
+  const before=entry.damage||0;
+  entry.damage=0;
+  entry.name=entry.name || itemDisplayName(got.item,got.id);
+  saveLocal(); renderAll(); await saveRoomState(); await refreshTokenMarker(got.id);
+  await broadcastEvent({id:uid(),type:"system",actor:"System",title:"Урон",summary:`${entry.name}: урон очищен (${before} → 0)`,text:`${entry.name}: урон очищен`,pill:"info",ts:Date.now(),time:nowTime()});
+}
+
 async function registerScarletContextMenu(){
   if(!online || !OBR?.contextMenu?.create) return;
   try{
@@ -212,6 +337,26 @@ async function registerScarletContextMenu(){
       shortcut:"T",
       filter:{every:[{key:"layer",value:"CHARACTER"}]},
       onClick:setContextTarget
+    });
+    await OBR.contextMenu.create({
+      id:"scarlet-damage-plus",
+      icons:[{icon:"/icon.svg",label:"+Урон"}],
+      shortcut:"Plus",
+      filter:{every:[{key:"layer",value:"CHARACTER"}]},
+      onClick:(context)=>adjustContextDamage(context,1)
+    });
+    await OBR.contextMenu.create({
+      id:"scarlet-damage-minus",
+      icons:[{icon:"/icon.svg",label:"−Урон"}],
+      shortcut:"Minus",
+      filter:{every:[{key:"layer",value:"CHARACTER"}]},
+      onClick:(context)=>adjustContextDamage(context,-1)
+    });
+    await OBR.contextMenu.create({
+      id:"scarlet-damage-clear",
+      icons:[{icon:"/icon.svg",label:"Сброс"}],
+      filter:{every:[{key:"layer",value:"CHARACTER"}]},
+      onClick:clearContextDamage
     });
   }catch(e){
     // Context menu API differs between Owlbear versions; HUD remains usable.
